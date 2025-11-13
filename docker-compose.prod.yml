@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: checkme-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    container_name: checkme-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-checkme_db}
+      POSTGRES_USER: ${POSTGRES_USER:-checkme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-checkme_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-checkme}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: checkme-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-checkme}:${POSTGRES_PASSWORD:-checkme_password}@postgres:5432/${POSTGRES_DB:-checkme_db}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,https://cpgjw4w7owohq.ok.kimi.link}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: checkme-frontend
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    command: npm run preview
+
+  redis:
+    image: redis:7-alpine
+    container_name: checkme-redis
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: checkme-celery
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-checkme}:${POSTGRES_PASSWORD:-checkme_password}@postgres:5432/${POSTGRES_DB:-checkme_db}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+    command: celery -A tasks worker --loglevel=info
+
+volumes:
+  postgres_data:
+  redis_data:

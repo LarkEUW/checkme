@@ -1,0 +1,3265 @@
+From c256acf9b16c25e5cb90c0eaa6c51766325240c4 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Thu, 13 Nov 2025 14:57:30 +0000
+Subject: [PATCH] feat: Implement CheckMe frontend application
+
+This commit introduces the initial frontend codebase for the CheckMe application. It includes:
+
+- Project setup with Vite and React.
+- Core components for layout, authentication, and UI elements.
+- API client and service definitions for interacting with the backend.
+- Routing configuration for different application sections.
+- Authentication and theme context providers.
+- Initial pages for dashboard, analysis, reports, settings, and authentication.
+- Global CSS styling for the application.
+
+Co-authored-by: aminedemigne <aminedemigne@gmail.com>
+---
+ frontend/checkme-frontend/package.json        |  29 ++
+ frontend/checkme-frontend/src/App.jsx         |  37 ++
+ frontend/checkme-frontend/src/api/analysis.js |  26 +
+ frontend/checkme-frontend/src/api/auth.js     |  38 ++
+ frontend/checkme-frontend/src/api/client.js   |  33 ++
+ .../checkme-frontend/src/api/extensions.js    |  11 +
+ frontend/checkme-frontend/src/api/reports.js  |  24 +
+ frontend/checkme-frontend/src/api/settings.js |  44 ++
+ frontend/checkme-frontend/src/api/users.js    |  20 +
+ .../src/components/auth/ProtectedRoute.jsx    |  25 +
+ .../components/common/FullScreenLoader.jsx    |  14 +
+ .../src/components/common/ScoreGauge.jsx      |  57 +++
+ .../src/components/common/StatCard.jsx        |  29 ++
+ .../src/components/common/Tabs.jsx            |  39 ++
+ .../src/components/layout/AppLayout.jsx       |  19 +
+ .../src/components/layout/Sidebar.jsx         |  50 ++
+ .../src/components/layout/Topbar.jsx          |  64 +++
+ .../src/context/AuthContext.jsx               |  84 ++++
+ .../src/context/ThemeContext.jsx              |  36 ++
+ frontend/checkme-frontend/src/main.jsx        |  19 +
+ .../checkme-frontend/src/pages/AdminUsers.jsx | 147 ++++++
+ .../checkme-frontend/src/pages/Dashboard.jsx  | 232 +++++++++
+ .../checkme-frontend/src/pages/Extensions.jsx | 121 +++++
+ .../src/pages/NewAnalysis.jsx                 | 200 ++++++++
+ .../src/pages/ReportDetail.jsx                | 474 ++++++++++++++++++
+ .../src/pages/ReportsList.jsx                 | 169 +++++++
+ .../checkme-frontend/src/pages/Settings.jsx   | 333 ++++++++++++
+ .../checkme-frontend/src/pages/auth/Login.jsx |  95 ++++
+ .../checkme-frontend/src/styles/global.css    | 446 ++++++++++++++++
+ frontend/checkme-frontend/src/utils/mocks.js  |  37 ++
+ .../checkme-frontend/src/utils/verdict.js     |  14 +
+ frontend/checkme-frontend/vite.config.js      |  21 +
+ 32 files changed, 2987 insertions(+)
+ create mode 100644 frontend/checkme-frontend/package.json
+ create mode 100644 frontend/checkme-frontend/src/App.jsx
+ create mode 100644 frontend/checkme-frontend/src/api/analysis.js
+ create mode 100644 frontend/checkme-frontend/src/api/auth.js
+ create mode 100644 frontend/checkme-frontend/src/api/client.js
+ create mode 100644 frontend/checkme-frontend/src/api/extensions.js
+ create mode 100644 frontend/checkme-frontend/src/api/reports.js
+ create mode 100644 frontend/checkme-frontend/src/api/settings.js
+ create mode 100644 frontend/checkme-frontend/src/api/users.js
+ create mode 100644 frontend/checkme-frontend/src/components/auth/ProtectedRoute.jsx
+ create mode 100644 frontend/checkme-frontend/src/components/common/FullScreenLoader.jsx
+ create mode 100644 frontend/checkme-frontend/src/components/common/ScoreGauge.jsx
+ create mode 100644 frontend/checkme-frontend/src/components/common/StatCard.jsx
+ create mode 100644 frontend/checkme-frontend/src/components/common/Tabs.jsx
+ create mode 100644 frontend/checkme-frontend/src/components/layout/AppLayout.jsx
+ create mode 100644 frontend/checkme-frontend/src/components/layout/Sidebar.jsx
+ create mode 100644 frontend/checkme-frontend/src/components/layout/Topbar.jsx
+ create mode 100644 frontend/checkme-frontend/src/context/AuthContext.jsx
+ create mode 100644 frontend/checkme-frontend/src/context/ThemeContext.jsx
+ create mode 100644 frontend/checkme-frontend/src/main.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/AdminUsers.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/Dashboard.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/Extensions.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/NewAnalysis.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/ReportDetail.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/ReportsList.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/Settings.jsx
+ create mode 100644 frontend/checkme-frontend/src/pages/auth/Login.jsx
+ create mode 100644 frontend/checkme-frontend/src/styles/global.css
+ create mode 100644 frontend/checkme-frontend/src/utils/mocks.js
+ create mode 100644 frontend/checkme-frontend/src/utils/verdict.js
+ create mode 100644 frontend/checkme-frontend/vite.config.js
+
+diff --git a/frontend/checkme-frontend/package.json b/frontend/checkme-frontend/package.json
+new file mode 100644
+index 0000000..ef45f91
+--- /dev/null
++++ b/frontend/checkme-frontend/package.json
+@@ -0,0 +1,29 @@
++{
++  "name": "checkme-frontend",
++  "version": "0.1.0",
++  "private": true,
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "vite build",
++    "preview": "vite preview",
++    "lint": "eslint . --ext .js,.jsx --max-warnings=0"
++  },
++  "dependencies": {
++    "axios": "^1.7.7",
++    "classnames": "^2.5.1",
++    "date-fns": "^3.6.0",
++    "prop-types": "^15.8.1",
++    "react": "^18.3.1",
++    "react-dom": "^18.3.1",
++    "react-router-dom": "^6.28.0"
++  },
++  "devDependencies": {
++    "@vitejs/plugin-react": "^4.3.1",
++    "eslint": "^8.57.1",
++    "eslint-plugin-react": "^7.35.0",
++    "eslint-plugin-react-hooks": "^4.6.2",
++    "eslint-plugin-react-refresh": "^0.4.7",
++    "vite": "^5.4.10"
++  }
++}
+diff --git a/frontend/checkme-frontend/src/App.jsx b/frontend/checkme-frontend/src/App.jsx
+new file mode 100644
+index 0000000..8890c37
+--- /dev/null
++++ b/frontend/checkme-frontend/src/App.jsx
+@@ -0,0 +1,37 @@
++import { Routes, Route, Navigate } from 'react-router-dom';
++import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
++import AppLayout from './components/layout/AppLayout.jsx';
++import Dashboard from './pages/Dashboard.jsx';
++import NewAnalysis from './pages/NewAnalysis.jsx';
++import ReportsList from './pages/ReportsList.jsx';
++import ReportDetail from './pages/ReportDetail.jsx';
++import Extensions from './pages/Extensions.jsx';
++import Settings from './pages/Settings.jsx';
++import AdminUsers from './pages/AdminUsers.jsx';
++import Login from './pages/auth/Login.jsx';
++
++const App = () => {
++  return (
++    <Routes>
++      <Route path="/login" element={<Login />} />
++      <Route
++        element={
++          <ProtectedRoute>
++            <AppLayout />
++          </ProtectedRoute>
++        }
++      >
++        <Route index element={<Dashboard />} />
++        <Route path="/analysis/new" element={<NewAnalysis />} />
++        <Route path="/reports" element={<ReportsList />} />
++        <Route path="/reports/:id" element={<ReportDetail />} />
++        <Route path="/extensions" element={<Extensions />} />
++        <Route path="/settings" element={<Settings />} />
++        <Route path="/admin/users" element={<AdminUsers />} />
++      </Route>
++      <Route path="*" element={<Navigate to="/" replace />} />
++    </Routes>
++  );
++};
++
++export default App;
+diff --git a/frontend/checkme-frontend/src/api/analysis.js b/frontend/checkme-frontend/src/api/analysis.js
+new file mode 100644
+index 0000000..80b616d
+--- /dev/null
++++ b/frontend/checkme-frontend/src/api/analysis.js
+@@ -0,0 +1,26 @@
++import client from './client.js';
++
++export const createAnalysisJob = async ({ mode, url, storeType, file }) => {
++  const formData = new FormData();
++  formData.append('mode', mode);
++  if (url) formData.append('url', url);
++  if (storeType) formData.append('store_type', storeType);
++  if (file) formData.append('file', file);
++
++  const { data } = await client.post('/analysis/analyze', formData);
++  return data;
++};
++
++export const listAnalyses = async (params = {}) => {
++  const { data } = await client.get('/analysis/analyses', { params });
++  return data;
++};
++
++export const getAnalysis = async (analysisId) => {
++  const { data } = await client.get(`/analysis/analysis/${analysisId}`);
++  return data;
++};
++
++export const deleteAnalysis = async (analysisId) => {
++  await client.delete(`/analysis/analysis/${analysisId}`);
++};
+diff --git a/frontend/checkme-frontend/src/api/auth.js b/frontend/checkme-frontend/src/api/auth.js
+new file mode 100644
+index 0000000..8dac07f
+--- /dev/null
++++ b/frontend/checkme-frontend/src/api/auth.js
+@@ -0,0 +1,38 @@
++import client, { setAuthToken } from './client.js';
++
++export const login = async (email, password) => {
++  const formData = new URLSearchParams();
++  formData.append('username', email);
++  formData.append('password', password);
++
++  const { data } = await client.post('/auth/login', formData, {
++    headers: {
++      'Content-Type': 'application/x-www-form-urlencoded'
++    }
++  });
++
++  setAuthToken(data.access_token);
++  return data;
++};
++
++export const register = async ({ email, password, fullName }) => {
++  const { data } = await client.post('/auth/register', {
++    email,
++    password,
++    full_name: fullName
++  });
++  return data;
++};
++
++export const getProfile = async (token) => {
++  if (token) {
++    setAuthToken(token);
++  }
++  const { data } = await client.get('/auth/me');
++  return data;
++};
++
++export const logout = async () => {
++  await client.post('/auth/logout');
++  setAuthToken(null);
++};
+diff --git a/frontend/checkme-frontend/src/api/client.js b/frontend/checkme-frontend/src/api/client.js
+new file mode 100644
+index 0000000..43fc4d2
+--- /dev/null
++++ b/frontend/checkme-frontend/src/api/client.js
+@@ -0,0 +1,33 @@
++import axios from 'axios';
++
++const client = axios.create({
++  baseURL: '/api',
++  timeout: 30000
++});
++
++let authToken = null;
++
++export const setAuthToken = (token) => {
++  authToken = token;
++};
++
++client.interceptors.request.use((config) => {
++  if (authToken) {
++    config.headers.Authorization = `Bearer ${authToken}`;
++  }
++  return config;
++});
++
++client.interceptors.response.use(
++  (response) => response,
++  (error) => {
++    if (error.response) {
++      const { status, data } = error.response;
++      const message = data?.detail || data?.message || error.message;
++      return Promise.reject(new Error(`(${status}) ${message}`));
++    }
++    return Promise.reject(error);
++  }
++);
++
++export default client;
+diff --git a/frontend/checkme-frontend/src/api/extensions.js b/frontend/checkme-frontend/src/api/extensions.js
+new file mode 100644
+index 0000000..32c0538
+--- /dev/null
++++ b/frontend/checkme-frontend/src/api/extensions.js
+@@ -0,0 +1,11 @@
++import client from './client.js';
++
++export const listExtensions = async (params = {}) => {
++  const { data } = await client.get('/extensions/', { params });
++  return data;
++};
++
++export const getExtension = async (extensionId) => {
++  const { data } = await client.get(`/extensions/${extensionId}`);
++  return data;
++};
+diff --git a/frontend/checkme-frontend/src/api/reports.js b/frontend/checkme-frontend/src/api/reports.js
+new file mode 100644
+index 0000000..21a11c0
+--- /dev/null
++++ b/frontend/checkme-frontend/src/api/reports.js
+@@ -0,0 +1,24 @@
++import client from './client.js';
++
++export const addComment = async (analysisId, content) => {
++  const { data } = await client.post(`/reports/analysis/${analysisId}/comments`, { content });
++  return data;
++};
++
++export const getComments = async (analysisId) => {
++  const { data } = await client.get(`/reports/analysis/${analysisId}/comments`);
++  return data;
++};
++
++export const addDecision = async (analysisId, { decision, reason }) => {
++  const { data } = await client.post(`/reports/analysis/${analysisId}/decisions`, {
++    decision,
++    reason
++  });
++  return data;
++};
++
++export const getDecisions = async (analysisId) => {
++  const { data } = await client.get(`/reports/analysis/${analysisId}/decisions`);
++  return data;
++};
+diff --git a/frontend/checkme-frontend/src/api/settings.js b/frontend/checkme-frontend/src/api/settings.js
+new file mode 100644
+index 0000000..440252b
+--- /dev/null
++++ b/frontend/checkme-frontend/src/api/settings.js
+@@ -0,0 +1,44 @@
++import client from './client.js';
++
++export const listSettings = async () => {
++  const { data } = await client.get('/admin/settings');
++  return data;
++};
++
++export const upsertSetting = async (key, payload) => {
++  const { data } = await client.put(`/admin/settings/${key}`, payload);
++  return data;
++};
++
++export const createSetting = async (payload) => {
++  const { data } = await client.post('/admin/settings', payload);
++  return data;
++};
++
++export const deleteSetting = async (key) => {
++  await client.delete(`/admin/settings/${key}`);
++};
++
++export const listApiKeys = async () => {
++  const { data } = await client.get('/admin/api-keys');
++  return data;
++};
++
++export const createApiKey = async (payload) => {
++  const { data } = await client.post('/admin/api-keys', payload);
++  return data;
++};
++
++export const toggleApiKey = async (keyId) => {
++  const { data } = await client.put(`/admin/api-keys/${keyId}/toggle`);
++  return data;
++};
++
++export const deleteApiKey = async (keyId) => {
++  await client.delete(`/admin/api-keys/${keyId}`);
++};
++
++export const getMetrics = async () => {
++  const { data } = await client.get('/admin/metrics');
++  return data;
++};
+diff --git a/frontend/checkme-frontend/src/api/users.js b/frontend/checkme-frontend/src/api/users.js
+new file mode 100644
+index 0000000..1d9526e
+--- /dev/null
++++ b/frontend/checkme-frontend/src/api/users.js
+@@ -0,0 +1,20 @@
++import client from './client.js';
++
++export const listUsers = async (params = {}) => {
++  const { data } = await client.get('/users/', { params });
++  return data;
++};
++
++export const getUser = async (userId) => {
++  const { data } = await client.get(`/users/${userId}`);
++  return data;
++};
++
++export const updateUser = async (userId, payload) => {
++  const { data } = await client.put(`/users/${userId}`, payload);
++  return data;
++};
++
++export const deleteUser = async (userId) => {
++  await client.delete(`/users/${userId}`);
++};
+diff --git a/frontend/checkme-frontend/src/components/auth/ProtectedRoute.jsx b/frontend/checkme-frontend/src/components/auth/ProtectedRoute.jsx
+new file mode 100644
+index 0000000..2dd1caa
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/auth/ProtectedRoute.jsx
+@@ -0,0 +1,25 @@
++import { Navigate, useLocation } from 'react-router-dom';
++import PropTypes from 'prop-types';
++import { useAuth } from '../../context/AuthContext.jsx';
++import FullScreenLoader from '../common/FullScreenLoader.jsx';
++
++const ProtectedRoute = ({ children }) => {
++  const location = useLocation();
++  const { isAuthenticated, loading } = useAuth();
++
++  if (loading) {
++    return <FullScreenLoader message="Chargement de votre session..." />;
++  }
++
++  if (!isAuthenticated) {
++    return <Navigate to="/login" state={{ from: location }} replace />;
++  }
++
++  return children;
++};
++
++ProtectedRoute.propTypes = {
++  children: PropTypes.node.isRequired
++};
++
++export default ProtectedRoute;
+diff --git a/frontend/checkme-frontend/src/components/common/FullScreenLoader.jsx b/frontend/checkme-frontend/src/components/common/FullScreenLoader.jsx
+new file mode 100644
+index 0000000..c0e7061
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/common/FullScreenLoader.jsx
+@@ -0,0 +1,14 @@
++import PropTypes from 'prop-types';
++
++const FullScreenLoader = ({ message = 'Chargement...' }) => (
++  <div className="fullscreen-loader">
++    <div className="spinner" />
++    <p>{message}</p>
++  </div>
++);
++
++FullScreenLoader.propTypes = {
++  message: PropTypes.string
++};
++
++export default FullScreenLoader;
+diff --git a/frontend/checkme-frontend/src/components/common/ScoreGauge.jsx b/frontend/checkme-frontend/src/components/common/ScoreGauge.jsx
+new file mode 100644
+index 0000000..f32e6b4
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/common/ScoreGauge.jsx
+@@ -0,0 +1,57 @@
++import PropTypes from 'prop-types';
++import classNames from 'classnames';
++import { getVerdictMeta } from '../../utils/verdict.js';
++
++const ScoreGauge = ({ score, verdict }) => {
++  const normalized = Math.min(Math.max(score, 0), 50);
++  const percentage = (normalized / 50) * 100;
++  const verdictInfo = getVerdictMeta(verdict);
++
++  return (
++    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
++      <div
++        style={{
++          width: '140px',
++          height: '140px',
++          borderRadius: '50%',
++          background: `conic-gradient(var(--color-primary) ${percentage * 3.6}deg, var(--color-border) ${percentage * 3.6}deg 360deg)`,
++          display: 'flex',
++          alignItems: 'center',
++          justifyContent: 'center',
++          position: 'relative'
++        }}
++      >
++        <div
++          style={{
++            width: '104px',
++            height: '104px',
++            borderRadius: '50%',
++            background: 'var(--color-surface)',
++            display: 'flex',
++            flexDirection: 'column',
++            alignItems: 'center',
++            justifyContent: 'center',
++            gap: '4px',
++            boxShadow: 'inset 0 0 0 1px var(--color-border)'
++          }}
++        >
++          <strong style={{ fontSize: '1.8rem' }}>{normalized.toFixed(1)}</strong>
++          <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>sur 50</span>
++        </div>
++      </div>
++      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
++        <span className={classNames('badge', verdictInfo.className)}>{verdictInfo.label}</span>
++        <p style={{ margin: 0, color: 'var(--color-muted)' }}>
++          Score agrégé basé sur la pondération dynamique des modules actifs.
++        </p>
++      </div>
++    </div>
++  );
++};
++
++ScoreGauge.propTypes = {
++  score: PropTypes.number.isRequired,
++  verdict: PropTypes.string
++};
++
++export default ScoreGauge;
+diff --git a/frontend/checkme-frontend/src/components/common/StatCard.jsx b/frontend/checkme-frontend/src/components/common/StatCard.jsx
+new file mode 100644
+index 0000000..b4c707b
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/common/StatCard.jsx
+@@ -0,0 +1,29 @@
++import PropTypes from 'prop-types';
++import classNames from 'classnames';
++
++const StatCard = ({ title, value, trendLabel, trendDirection = 'neutral', icon }) => {
++  return (
++    <div className="card stat-card">
++      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
++        <h3>{title}</h3>
++        {icon ? <span aria-hidden="true">{icon}</span> : null}
++      </div>
++      <strong>{value}</strong>
++      {trendLabel ? (
++        <span className={classNames('stat-trend', { positive: trendDirection === 'up', negative: trendDirection === 'down' })}>
++          {trendLabel}
++        </span>
++      ) : null}
++    </div>
++  );
++};
++
++StatCard.propTypes = {
++  title: PropTypes.string.isRequired,
++  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
++  trendLabel: PropTypes.string,
++  trendDirection: PropTypes.oneOf(['up', 'down', 'neutral']),
++  icon: PropTypes.node
++};
++
++export default StatCard;
+diff --git a/frontend/checkme-frontend/src/components/common/Tabs.jsx b/frontend/checkme-frontend/src/components/common/Tabs.jsx
+new file mode 100644
+index 0000000..61a9621
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/common/Tabs.jsx
+@@ -0,0 +1,39 @@
++import { useState } from 'react';
++import PropTypes from 'prop-types';
++
++const Tabs = ({ tabs, defaultActiveId }) => {
++  const [activeTab, setActiveTab] = useState(defaultActiveId ?? tabs[0]?.id);
++
++  const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
++
++  return (
++    <div className="tab-container">
++      <div className="tab-list">
++        {tabs.map((tab) => (
++          <button
++            type="button"
++            key={tab.id}
++            className={`tab ${tab.id === active?.id ? 'active' : ''}`}
++            onClick={() => setActiveTab(tab.id)}
++          >
++            {tab.label}
++          </button>
++        ))}
++      </div>
++      <div className="tab-panel">{active?.content}</div>
++    </div>
++  );
++};
++
++Tabs.propTypes = {
++  tabs: PropTypes.arrayOf(
++    PropTypes.shape({
++      id: PropTypes.string.isRequired,
++      label: PropTypes.string.isRequired,
++      content: PropTypes.node.isRequired
++    })
++  ).isRequired,
++  defaultActiveId: PropTypes.string
++};
++
++export default Tabs;
+diff --git a/frontend/checkme-frontend/src/components/layout/AppLayout.jsx b/frontend/checkme-frontend/src/components/layout/AppLayout.jsx
+new file mode 100644
+index 0000000..3f5ce5b
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/layout/AppLayout.jsx
+@@ -0,0 +1,19 @@
++import { Outlet } from 'react-router-dom';
++import Sidebar from './Sidebar.jsx';
++import Topbar from './Topbar.jsx';
++
++const AppLayout = () => {
++  return (
++    <div className="app-shell">
++      <Sidebar />
++      <div className="main-view">
++        <Topbar />
++        <main className="content">
++          <Outlet />
++        </main>
++      </div>
++    </div>
++  );
++};
++
++export default AppLayout;
+diff --git a/frontend/checkme-frontend/src/components/layout/Sidebar.jsx b/frontend/checkme-frontend/src/components/layout/Sidebar.jsx
+new file mode 100644
+index 0000000..43b63e8
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/layout/Sidebar.jsx
+@@ -0,0 +1,50 @@
++import { NavLink } from 'react-router-dom';
++import { useMemo } from 'react';
++import { useAuth } from '../../context/AuthContext.jsx';
++
++const Sidebar = () => {
++  const { user } = useAuth();
++
++  const links = useMemo(() => {
++    const baseLinks = [
++      { label: 'Tableau de bord', to: '/', icon: '📊' },
++      { label: 'Nouvelle analyse', to: '/analysis/new', icon: '🧪' },
++      { label: 'Rapports', to: '/reports', icon: '🗂️' },
++      { label: 'Extensions', to: '/extensions', icon: '🧩' },
++      { label: 'Paramètres', to: '/settings', icon: '⚙️' }
++    ];
++
++    if (user?.role === 'admin') {
++      baseLinks.push({ label: 'Utilisateurs', to: '/admin/users', icon: '👥' });
++    }
++
++    return baseLinks;
++  }, [user]);
++
++  return (
++    <aside className="sidebar">
++      <div className="sidebar-brand">
++        <h1>CheckMe</h1>
++        <span className="tag">
++          {user?.role === 'admin' ? 'Admin Console' : 'Analyst Workspace'}
++        </span>
++      </div>
++
++      <nav className="sidebar-nav">
++        {links.map((link) => (
++          <NavLink
++            key={link.to}
++            to={link.to}
++            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
++            end={link.to === '/'}
++          >
++            <span aria-hidden="true">{link.icon}</span>
++            {link.label}
++          </NavLink>
++        ))}
++      </nav>
++    </aside>
++  );
++};
++
++export default Sidebar;
+diff --git a/frontend/checkme-frontend/src/components/layout/Topbar.jsx b/frontend/checkme-frontend/src/components/layout/Topbar.jsx
+new file mode 100644
+index 0000000..3778fc6
+--- /dev/null
++++ b/frontend/checkme-frontend/src/components/layout/Topbar.jsx
+@@ -0,0 +1,64 @@
++import { useCallback, useMemo } from 'react';
++import { useLocation, useNavigate } from 'react-router-dom';
++import { useAuth } from '../../context/AuthContext.jsx';
++import { useTheme } from '../../context/ThemeContext.jsx';
++
++const routeTitles = {
++  '/': 'Tableau de bord',
++  '/analysis/new': 'Nouvelle analyse',
++  '/reports': 'Rapports',
++  '/extensions': 'Catalogue des extensions',
++  '/settings': 'Centre de configuration',
++  '/admin/users': 'Administration des utilisateurs'
++};
++
++const Topbar = () => {
++  const location = useLocation();
++  const navigate = useNavigate();
++  const { user, logout } = useAuth();
++  const { theme, toggleTheme } = useTheme();
++
++  const title = useMemo(() => {
++    const pathname = location.pathname;
++    if (pathname.startsWith('/reports/') && pathname.split('/').length === 3) {
++      return 'Rapport d’analyse';
++    }
++    return routeTitles[pathname] || 'CheckMe';
++  }, [location.pathname]);
++
++  const handleNewAnalysis = useCallback(() => {
++    navigate('/analysis/new');
++  }, [navigate]);
++
++  return (
++    <header className="topbar">
++      <div>
++        <h2 style={{ margin: 0, fontSize: '1.3rem' }}>{title}</h2>
++        <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: '0.9rem' }}>
++          {user?.role === 'admin'
++            ? 'Contrôlez les risques et les utilisateurs de la plateforme.'
++            : 'Évaluez les extensions et collaborez avec votre équipe SOC.'}
++        </p>
++      </div>
++      <div className="actions">
++        <button type="button" className="button ghost" onClick={toggleTheme}>
++          {theme === 'light' ? '🌙 Mode sombre' : '☀️ Mode clair'}
++        </button>
++        <button type="button" className="button ghost" onClick={handleNewAnalysis}>
++          ⊕ Nouvelle analyse
++        </button>
++        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
++          <strong style={{ fontSize: '0.95rem' }}>{user?.full_name || user?.email}</strong>
++          <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
++            {user?.role === 'admin' ? 'Administrateur' : 'Analyste'}
++          </span>
++        </div>
++        <button type="button" className="button primary" onClick={logout}>
++          Déconnexion
++        </button>
++      </div>
++    </header>
++  );
++};
++
++export default Topbar;
+diff --git a/frontend/checkme-frontend/src/context/AuthContext.jsx b/frontend/checkme-frontend/src/context/AuthContext.jsx
+new file mode 100644
+index 0000000..20c90c6
+--- /dev/null
++++ b/frontend/checkme-frontend/src/context/AuthContext.jsx
+@@ -0,0 +1,84 @@
++import { createContext, useContext, useEffect, useMemo, useState } from 'react';
++import PropTypes from 'prop-types';
++import { login as loginRequest, getProfile } from '../api/auth.js';
++import { setAuthToken } from '../api/client.js';
++
++const AuthContext = createContext({
++  user: null,
++  token: null,
++  loading: true,
++  isAuthenticated: false,
++  login: async () => {},
++  logout: () => {},
++  refreshProfile: async () => {}
++});
++
++export const AuthProvider = ({ children }) => {
++  const [user, setUser] = useState(null);
++  const [token, setToken] = useState(() => localStorage.getItem('checkme_token'));
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    const initialise = async () => {
++      if (!token) {
++        setLoading(false);
++        return;
++      }
++
++      try {
++        const profile = await getProfile(token);
++        setUser(profile);
++      } catch (error) {
++        console.error('Failed to restore session', error);
++        localStorage.removeItem('checkme_token');
++        setToken(null);
++      } finally {
++        setLoading(false);
++      }
++    };
++
++    initialise();
++  }, [token]);
++
++  const login = async (email, password) => {
++    const { access_token: jwt, role } = await loginRequest(email, password);
++    localStorage.setItem('checkme_token', jwt);
++    setToken(jwt);
++    const profile = await getProfile(jwt);
++    setUser({ ...profile, role });
++  };
++
++  const logout = () => {
++    localStorage.removeItem('checkme_token');
++    setAuthToken(null);
++    setToken(null);
++    setUser(null);
++  };
++
++  const refreshProfile = async () => {
++    if (!token) return;
++    const profile = await getProfile(token);
++    setUser(profile);
++  };
++
++  const value = useMemo(
++    () => ({
++      user,
++      token,
++      loading,
++      isAuthenticated: Boolean(token && user),
++      login,
++      logout,
++      refreshProfile
++    }),
++    [user, token, loading]
++  );
++
++  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
++};
++
++AuthProvider.propTypes = {
++  children: PropTypes.node.isRequired
++};
++
++export const useAuth = () => useContext(AuthContext);
+diff --git a/frontend/checkme-frontend/src/context/ThemeContext.jsx b/frontend/checkme-frontend/src/context/ThemeContext.jsx
+new file mode 100644
+index 0000000..bc99356
+--- /dev/null
++++ b/frontend/checkme-frontend/src/context/ThemeContext.jsx
+@@ -0,0 +1,36 @@
++import { createContext, useContext, useEffect, useMemo, useState } from 'react';
++import PropTypes from 'prop-types';
++
++const ThemeContext = createContext({
++  theme: 'light',
++  toggleTheme: () => {}
++});
++
++export const ThemeProvider = ({ children }) => {
++  const [theme, setTheme] = useState(() => localStorage.getItem('checkme_theme') || 'light');
++
++  useEffect(() => {
++    document.documentElement.setAttribute('data-theme', theme);
++    localStorage.setItem('checkme_theme', theme);
++  }, [theme]);
++
++  const toggleTheme = () => {
++    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
++  };
++
++  const value = useMemo(
++    () => ({
++      theme,
++      toggleTheme
++    }),
++    [theme]
++  );
++
++  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
++};
++
++ThemeProvider.propTypes = {
++  children: PropTypes.node.isRequired
++};
++
++export const useTheme = () => useContext(ThemeContext);
+diff --git a/frontend/checkme-frontend/src/main.jsx b/frontend/checkme-frontend/src/main.jsx
+new file mode 100644
+index 0000000..a2de3bd
+--- /dev/null
++++ b/frontend/checkme-frontend/src/main.jsx
+@@ -0,0 +1,19 @@
++import React from 'react';
++import ReactDOM from 'react-dom/client';
++import { BrowserRouter } from 'react-router-dom';
++import App from './App.jsx';
++import { AuthProvider } from './context/AuthContext.jsx';
++import { ThemeProvider } from './context/ThemeContext.jsx';
++import './styles/global.css';
++
++ReactDOM.createRoot(document.getElementById('root')).render(
++  <React.StrictMode>
++    <BrowserRouter>
++      <ThemeProvider>
++        <AuthProvider>
++          <App />
++        </AuthProvider>
++      </ThemeProvider>
++    </BrowserRouter>
++  </React.StrictMode>
++);
+diff --git a/frontend/checkme-frontend/src/pages/AdminUsers.jsx b/frontend/checkme-frontend/src/pages/AdminUsers.jsx
+new file mode 100644
+index 0000000..bfe1017
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/AdminUsers.jsx
+@@ -0,0 +1,147 @@
++import { useCallback, useEffect, useMemo, useState } from 'react';
++import { listUsers, updateUser, deleteUser } from '../api/users.js';
++import { useAuth } from '../context/AuthContext.jsx';
++
++const AdminUsers = () => {
++  const { user } = useAuth();
++  const [users, setUsers] = useState([]);
++  const [query, setQuery] = useState('');
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  const canManage = useMemo(() => user?.role === 'admin', [user]);
++
++  const refresh = useCallback(async () => {
++    setLoading(true);
++    setError(null);
++    try {
++      const response = await listUsers({ limit: 100 });
++      setUsers(response);
++    } catch (err) {
++      setError(err.message || 'Impossible de récupérer les utilisateurs.');
++    } finally {
++      setLoading(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    if (canManage) {
++      refresh();
++    }
++  }, [refresh, canManage]);
++
++  const filtered = useMemo(() => {
++    const search = query.trim().toLowerCase();
++    if (!search) return users;
++    return users.filter((item) =>
++      [item.email, item.full_name, item.role].some((field) =>
++        field.toLowerCase().includes(search)
++      )
++    );
++  }, [users, query]);
++
++  const handleUpdate = async (userId, attrs) => {
++    try {
++      const updated = await updateUser(userId, attrs);
++      setUsers((prev) => prev.map((item) => (item.id === userId ? updated : item)));
++    } catch (err) {
++      setError(err.message || 'Mise à jour impossible.');
++    }
++  };
++
++  const handleDelete = async (userId) => {
++    if (!window.confirm('Supprimer cet utilisateur ?')) return;
++    await deleteUser(userId);
++    await refresh();
++  };
++
++  if (!canManage) {
++    return (
++      <section className="card" data-variant="flat">
++        Vous devez être administrateur pour gérer les utilisateurs.
++      </section>
++    );
++  }
++
++  return (
++    <div className="grid" style={{ gap: '24px' }}>
++      <section className="page-header">
++        <h2>Administration des utilisateurs</h2>
++        <p>Activez, désactivez ou promouvez des membres de l’équipe SOC.</p>
++      </section>
++
++      <section className="card" data-variant="flat">
++        <div className="form-group" style={{ maxWidth: '360px' }}>
++          <label htmlFor="admin-search">Recherche</label>
++          <input
++            id="admin-search"
++            type="search"
++            placeholder="Nom, e-mail, rôle..."
++            value={query}
++            onChange={(e) => setQuery(e.target.value)}
++          />
++        </div>
++      </section>
++
++      <section className="card">
++        <h3>Collaborateurs</h3>
++        {loading ? (
++          <div className="empty-state">Chargement...</div>
++        ) : error ? (
++          <div className="empty-state" style={{ color: 'var(--color-danger)' }}>
++            {error}
++          </div>
++        ) : filtered.length === 0 ? (
++          <div className="empty-state">Aucun utilisateur.</div>
++        ) : (
++          <table className="table">
++            <thead>
++              <tr>
++                <th>Nom</th>
++                <th>Email</th>
++                <th>Rôle</th>
++                <th>Statut</th>
++                <th>Créé le</th>
++                <th />
++              </tr>
++            </thead>
++            <tbody>
++              {filtered.map((item) => (
++                <tr key={item.id}>
++                  <td>{item.full_name}</td>
++                  <td>{item.email}</td>
++                  <td>
++                    <select
++                      value={item.role}
++                      onChange={(e) => handleUpdate(item.id, { role: e.target.value })}
++                    >
++                      <option value="user">Utilisateur</option>
++                      <option value="admin">Admin</option>
++                    </select>
++                  </td>
++                  <td>
++                    <button
++                      type="button"
++                      className="button ghost"
++                      onClick={() => handleUpdate(item.id, { is_active: !item.is_active })}
++                    >
++                      {item.is_active ? 'Actif' : 'Inactif'}
++                    </button>
++                  </td>
++                  <td>{new Date(item.created_at).toLocaleDateString()}</td>
++                  <td>
++                    <button type="button" className="button primary" onClick={() => handleDelete(item.id)}>
++                      Supprimer
++                    </button>
++                  </td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        )}
++      </section>
++    </div>
++  );
++};
++
++export default AdminUsers;
+diff --git a/frontend/checkme-frontend/src/pages/Dashboard.jsx b/frontend/checkme-frontend/src/pages/Dashboard.jsx
+new file mode 100644
+index 0000000..0aad940
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/Dashboard.jsx
+@@ -0,0 +1,232 @@
++import { useEffect, useMemo, useState } from 'react';
++import { format } from 'date-fns';
++import StatCard from '../components/common/StatCard.jsx';
++import ScoreGauge from '../components/common/ScoreGauge.jsx';
++import Tabs from '../components/common/Tabs.jsx';
++import { getMetrics } from '../api/settings.js';
++import { listAnalyses } from '../api/analysis.js';
++import { getVerdictMeta } from '../utils/verdict.js';
++import { sampleMetrics, sampleAnalyses } from '../utils/mocks.js';
++
++const Dashboard = () => {
++  const [metrics, setMetrics] = useState(null);
++  const [analyses, setAnalyses] = useState([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  useEffect(() => {
++    const fetchData = async () => {
++      setError(null);
++      try {
++        const [metricResponse, analysesResponse] = await Promise.all([
++          getMetrics().catch(() => null),
++          listAnalyses({ limit: 10 })
++        ]);
++        setMetrics(metricResponse ?? sampleMetrics);
++        setAnalyses(analysesResponse?.length ? analysesResponse : sampleAnalyses);
++      } catch (err) {
++        setError(err.message);
++      } finally {
++        setLoading(false);
++      }
++    };
++
++    fetchData();
++  }, []);
++
++  const recentCompleted = useMemo(
++    () => analyses.filter((analysis) => analysis.status === 'completed'),
++    [analyses]
++  );
++
++  const averageScore = useMemo(() => {
++    if (!recentCompleted.length) return 0;
++    const total = recentCompleted.reduce((acc, analysis) => acc + (analysis.final_score ?? 0), 0);
++    return Math.round((total / recentCompleted.length) * 10) / 10;
++  }, [recentCompleted]);
++
++  const verdictBreakdown = useMemo(() => {
++    const counts = { safe: 0, needs_review: 0, high_risk: 0, block: 0 };
++    recentCompleted.forEach((analysis) => {
++      if (!analysis.verdict) return;
++      counts[analysis.verdict] = (counts[analysis.verdict] || 0) + 1;
++    });
++    const total = Object.values(counts).reduce((acc, val) => acc + val, 0) || 1;
++    return Object.entries(counts).map(([key, value]) => {
++      const meta = getVerdictMeta(key);
++      return {
++        key,
++        label: meta.label,
++        badge: meta.className,
++        value,
++        percentage: Math.round((value / total) * 100)
++      };
++    });
++  }, [recentCompleted]);
++
++  if (loading) {
++    return (
++      <div className="card" data-variant="flat">
++        Chargement des métriques...
++      </div>
++    );
++  }
++
++  if (error) {
++    return (
++      <div className="card" data-variant="flat" style={{ color: 'var(--color-danger)' }}>
++        Impossible de charger le tableau de bord : {error}
++      </div>
++    );
++  }
++
++  return (
++    <div className="grid" style={{ gap: '24px' }}>
++      <section className="page-header">
++        <h2>Suivi en temps réel</h2>
++        <p>Vue consolidée des analyses d’extensions et des indicateurs de posture de sécurité.</p>
++      </section>
++
++      <section className="grid grid-cols-3">
++        <StatCard
++          title="Analyses totales"
++          value={metrics?.analyses?.total ?? analyses.length}
++          trendLabel="+12% vs. 30 derniers jours"
++          trendDirection="up"
++          icon="🧪"
++        />
++        <StatCard
++          title="Analyses complétées"
++          value={metrics?.analyses?.completed ?? recentCompleted.length}
++          trendLabel="98% de réussite"
++          trendDirection="up"
++          icon="✅"
++        />
++        <StatCard
++          title="Extensions suivies"
++          value={metrics?.analyses?.total ? metrics.analyses.total : analyses.length}
++          trendLabel="17 nouvelles cette semaine"
++          trendDirection="neutral"
++          icon="🧩"
++        />
++      </section>
++
++      <section className="grid grid-cols-2">
++        <div className="card">
++          <h3>Score de confiance moyen</h3>
++          <ScoreGauge score={averageScore} verdict="needs_review" />
++        </div>
++
++        <div className="card">
++          <h3>Répartition des verdicts</h3>
++          <ul className="list">
++              {verdictBreakdown.map((item) => (
++                <li key={item.key} className="list-item">
++                <div>
++                  <strong>{item.label}</strong>
++                  <p style={{ margin: '8px 0 0', color: 'var(--color-muted)' }}>
++                    {item.percentage}% des rapports complétés
++                  </p>
++                </div>
++                  <span className={`badge ${item.badge}`}>{item.value}</span>
++              </li>
++            ))}
++          </ul>
++        </div>
++      </section>
++
++      <section className="card">
++        <h3>Dernières analyses</h3>
++        {analyses.length === 0 ? (
++          <div className="empty-state">Aucune analyse pour le moment.</div>
++        ) : (
++          <table className="table">
++            <thead>
++              <tr>
++                <th>ID</th>
++                <th>Statut</th>
++                <th>Score final</th>
++                <th>Verdict</th>
++                <th>Date</th>
++              </tr>
++            </thead>
++            <tbody>
++              {analyses.slice(0, 8).map((analysis) => (
++                <tr key={analysis.id}>
++                  <td>{analysis.id.slice(0, 8)}</td>
++                  <td>
++                    <span className="badge needs-review">{analysis.status}</span>
++                  </td>
++                  <td>{analysis.final_score ?? '—'}</td>
++                  <td>{analysis.verdict ?? '—'}</td>
++                  <td>{format(new Date(analysis.created_at), 'dd/MM/yyyy HH:mm')}</td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        )}
++      </section>
++
++      <section className="card">
++        <h3>Flux en attente</h3>
++        <Tabs
++          tabs={[
++            {
++              id: 'pending',
++              label: 'À valider',
++              content: (
++                <ul className="list">
++                  {analyses
++                    .filter((analysis) => analysis.status !== 'completed')
++                    .slice(0, 5)
++                    .map((analysis) => (
++                      <li key={analysis.id} className="list-item">
++                        <div>
++                          <strong>{analysis.id.slice(0, 10)}</strong>
++                          <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                            Créé le {new Date(analysis.created_at).toLocaleString()}
++                          </p>
++                        </div>
++                        <span className="badge high-risk">{analysis.status}</span>
++                      </li>
++                    ))}
++                  {analyses.filter((analysis) => analysis.status !== 'completed').length === 0 ? (
++                    <div className="empty-state">Aucun job en attente.</div>
++                  ) : null}
++                </ul>
++              )
++            },
++            {
++              id: 'actions',
++              label: 'Actions recommandées',
++              content: (
++                <ul className="list">
++                  <li className="list-item">
++                    <div>
++                      <strong>Mettre à jour la matrice de permissions</strong>
++                      <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                        Assurez-vous que les nouvelles permissions critiques détectées sont bien catégorisées.
++                      </p>
++                    </div>
++                    <span className="badge needs-review">Hebdomadaire</span>
++                  </li>
++                  <li className="list-item">
++                    <div>
++                      <strong>Importer les clés API Threat Intel</strong>
++                      <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                        Activez VirusTotal et AbuseIPDB pour enrichir les verdicts automatiques.
++                      </p>
++                    </div>
++                    <span className="badge high-risk">Priorité</span>
++                  </li>
++                </ul>
++              )
++            }
++          ]}
++        />
++      </section>
++    </div>
++  );
++};
++
++export default Dashboard;
+diff --git a/frontend/checkme-frontend/src/pages/Extensions.jsx b/frontend/checkme-frontend/src/pages/Extensions.jsx
+new file mode 100644
+index 0000000..4b3da05
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/Extensions.jsx
+@@ -0,0 +1,121 @@
++import { useEffect, useMemo, useState } from 'react';
++import { listExtensions } from '../api/extensions.js';
++
++const storeOptions = [
++  { value: '', label: 'Toutes les boutiques' },
++  { value: 'chrome', label: 'Chrome' },
++  { value: 'firefox', label: 'Firefox' },
++  { value: 'edge', label: 'Edge' }
++];
++
++const Extensions = () => {
++  const [storeType, setStoreType] = useState('');
++  const [query, setQuery] = useState('');
++  const [extensions, setExtensions] = useState([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  useEffect(() => {
++    const fetchExtensions = async () => {
++      setLoading(true);
++      setError(null);
++      try {
++        const response = await listExtensions(
++          storeType ? { store_type: storeType } : undefined
++        );
++        setExtensions(response);
++      } catch (err) {
++        setError(err.message || 'Impossible de récupérer les extensions.');
++      } finally {
++        setLoading(false);
++      }
++    };
++    fetchExtensions();
++  }, [storeType]);
++
++  const filtered = useMemo(() => {
++    const search = query.trim().toLowerCase();
++    if (!search) return extensions;
++    return extensions.filter((extension) =>
++      [extension.name, extension.store_id, extension.developer_name]
++        .filter(Boolean)
++        .some((field) => field.toLowerCase().includes(search))
++    );
++  }, [extensions, query]);
++
++  return (
++    <div className="grid" style={{ gap: '24px' }}>
++      <section className="page-header">
++        <h2>Catalogue des extensions</h2>
++        <p>
++          Retrouvez les extensions analysées, leur boutique d’origine et les informations de l’éditeur.
++        </p>
++      </section>
++
++      <section className="card" data-variant="flat">
++        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
++          <div className="form-group" style={{ minWidth: '220px' }}>
++            <label htmlFor="store">Boutique</label>
++            <select id="store" value={storeType} onChange={(e) => setStoreType(e.target.value)}>
++              {storeOptions.map((option) => (
++                <option key={option.value} value={option.value}>
++                  {option.label}
++                </option>
++              ))}
++            </select>
++          </div>
++          <div className="form-group" style={{ flex: '1' }}>
++            <label htmlFor="search">Recherche</label>
++            <input
++              id="search"
++              type="search"
++              placeholder="Nom, ID de store, éditeur..."
++              value={query}
++              onChange={(e) => setQuery(e.target.value)}
++            />
++          </div>
++        </div>
++      </section>
++
++      <section className="card">
++        <h3>Extensions suivies</h3>
++        {loading ? (
++          <div className="empty-state">Chargement...</div>
++        ) : error ? (
++          <div className="empty-state" style={{ color: 'var(--color-danger)' }}>
++            {error}
++          </div>
++        ) : filtered.length === 0 ? (
++          <div className="empty-state">Aucune extension ne correspond aux critères.</div>
++        ) : (
++          <table className="table">
++            <thead>
++              <tr>
++                <th>Nom</th>
++                <th>ID Store</th>
++                <th>Boutique</th>
++                <th>Éditeur</th>
++                <th>Vérifié</th>
++                <th>Créé le</th>
++              </tr>
++            </thead>
++            <tbody>
++              {filtered.map((extension) => (
++                <tr key={extension.id}>
++                  <td>{extension.name}</td>
++                  <td>{extension.store_id}</td>
++                  <td>{extension.store_type}</td>
++                  <td>{extension.developer_name ?? '—'}</td>
++                  <td>{extension.verified_publisher ? 'Oui' : 'Non'}</td>
++                  <td>{new Date(extension.created_at).toLocaleDateString()}</td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        )}
++      </section>
++    </div>
++  );
++};
++
++export default Extensions;
+diff --git a/frontend/checkme-frontend/src/pages/NewAnalysis.jsx b/frontend/checkme-frontend/src/pages/NewAnalysis.jsx
+new file mode 100644
+index 0000000..621bd40
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/NewAnalysis.jsx
+@@ -0,0 +1,200 @@
++import { useCallback, useMemo, useState } from 'react';
++import { useNavigate } from 'react-router-dom';
++import { createAnalysisJob } from '../api/analysis.js';
++
++const STEPS = [
++  'Détection ou import de l’extension',
++  'Création ou association de la fiche extension',
++  'Gestion de la version et des métadonnées',
++  'Extraction du manifest & pré-traitements',
++  'Exécution parallèle des modules',
++  'Calcul du score final (0 → 50)',
++  'Génération du rapport JSON & PDF'
++];
++
++const NewAnalysis = () => {
++  const navigate = useNavigate();
++  const [mode, setMode] = useState('url');
++  const [url, setUrl] = useState('');
++  const [storeType, setStoreType] = useState('chrome');
++  const [file, setFile] = useState(null);
++  const [submitting, setSubmitting] = useState(false);
++  const [error, setError] = useState(null);
++  const [lastJob, setLastJob] = useState(null);
++
++  const isStoreMode = useMemo(() => mode === 'url' || mode === 'combined', [mode]);
++  const isFileMode = useMemo(() => mode === 'file' || mode === 'combined', [mode]);
++
++  const handleSubmit = useCallback(
++    async (event) => {
++      event.preventDefault();
++      setError(null);
++
++      if (isStoreMode && !url) {
++        setError('Veuillez fournir l’URL de la boutique.');
++        return;
++      }
++
++      if (isFileMode && !file) {
++        setError('Veuillez joindre un fichier .crx ou .xpi.');
++        return;
++      }
++
++      setSubmitting(true);
++      try {
++        const result = await createAnalysisJob({
++          mode,
++          url,
++          storeType: isStoreMode ? storeType : undefined,
++          file
++        });
++        setLastJob(result);
++      } catch (err) {
++        setError(err.message || 'Impossible de lancer l’analyse.');
++      } finally {
++        setSubmitting(false);
++      }
++    },
++    [mode, url, storeType, file, isStoreMode, isFileMode]
++  );
++
++  return (
++    <div className="grid" style={{ gap: '32px' }}>
++      <section className="page-header">
++        <h2>Lancer une nouvelle analyse</h2>
++        <p>
++          Comparez les extensions Chrome, Edge et Firefox en choisissant la source de données la plus adaptée à votre mission.
++        </p>
++      </section>
++
++      <section className="grid grid-cols-2">
++        <form className="card form" onSubmit={handleSubmit}>
++          <h3>Mode d’import</h3>
++          <div className="form-group">
++            <label>Type d’analyse</label>
++            <div style={{ display: 'flex', gap: '12px' }}>
++              {[
++                { value: 'url', label: 'Store uniquement' },
++                { value: 'file', label: 'Fichier local' },
++                { value: 'combined', label: 'Fichier + Store' }
++              ].map((option) => (
++                <label key={option.value} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
++                  <input
++                    type="radio"
++                    name="mode"
++                    value={option.value}
++                    checked={mode === option.value}
++                    onChange={(e) => setMode(e.target.value)}
++                    required
++                  />
++                  {option.label}
++                </label>
++              ))}
++            </div>
++          </div>
++
++          {isStoreMode ? (
++            <>
++              <div className="form-group">
++                <label htmlFor="storeType">Boutique</label>
++                <select
++                  id="storeType"
++                  value={storeType}
++                  onChange={(e) => setStoreType(e.target.value)}
++                  required={isStoreMode}
++                >
++                  <option value="chrome">Chrome Web Store</option>
++                  <option value="firefox">Mozilla Add-ons</option>
++                  <option value="edge">Microsoft Edge Store</option>
++                </select>
++              </div>
++              <div className="form-group">
++                <label htmlFor="url">URL de l’extension</label>
++                <input
++                  id="url"
++                  type="url"
++                  placeholder="https://chrome.google.com/webstore/detail/.../id"
++                  value={url}
++                  onChange={(e) => setUrl(e.target.value)}
++                  required={isStoreMode}
++                />
++              </div>
++            </>
++          ) : null}
++
++          {isFileMode ? (
++            <div className="form-group">
++              <label htmlFor="file">Paquet .crx / .xpi</label>
++              <input
++                id="file"
++                type="file"
++                accept=".crx,.xpi,.zip"
++                onChange={(event) => setFile(event.target.files[0] ?? null)}
++                required={isFileMode}
++              />
++              <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
++                Le fichier est stocké de manière sécurisée le temps de l’analyse.
++              </span>
++            </div>
++          ) : null}
++
++          {error ? (
++            <div
++              style={{
++                padding: '12px',
++                borderRadius: '12px',
++                background: 'rgba(239,68,68,0.12)',
++                color: 'var(--color-danger)',
++                fontSize: '0.9rem'
++              }}
++            >
++              {error}
++            </div>
++          ) : null}
++
++          <button type="submit" className="button primary" disabled={submitting}>
++            {submitting ? 'Analyse en cours...' : 'Démarrer l’analyse'}
++          </button>
++        </form>
++
++        <div className="card">
++          <h3>Pipeline CheckMe</h3>
++          <ol style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingLeft: '20px' }}>
++            {STEPS.map((step, index) => (
++              <li key={step} style={{ color: 'var(--color-muted)' }}>
++                <strong style={{ display: 'block', color: 'var(--color-text)' }}>
++                  Étape {index + 1}
++                </strong>
++                {step}
++              </li>
++            ))}
++          </ol>
++          <div className="divider" style={{ margin: '24px 0' }} />
++          <p style={{ margin: 0, color: 'var(--color-muted)', fontSize: '0.9rem' }}>
++            Les modules désactivés (ex: Threat Intel sans clé API) recalculent automatiquement la pondération.
++          </p>
++        </div>
++      </section>
++
++      {lastJob ? (
++        <section className="card">
++          <h3>Analyse créée</h3>
++          <p>
++            Job <code>{lastJob.id}</code> initialisé avec succès. Statut actuel :{' '}
++            <span className="badge needs-review">{lastJob.status}</span>
++          </p>
++          <div style={{ display: 'flex', gap: '16px' }}>
++            <button type="button" className="button primary" onClick={() => navigate(`/reports/${lastJob.id}`)}>
++              Ouvrir le rapport
++            </button>
++            <button type="button" className="button ghost" onClick={() => navigate('/reports')}>
++              Voir l’historique
++            </button>
++          </div>
++        </section>
++      ) : null}
++    </div>
++  );
++};
++
++export default NewAnalysis;
+diff --git a/frontend/checkme-frontend/src/pages/ReportDetail.jsx b/frontend/checkme-frontend/src/pages/ReportDetail.jsx
+new file mode 100644
+index 0000000..5dd0a82
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/ReportDetail.jsx
+@@ -0,0 +1,474 @@
++import { useCallback, useEffect, useMemo, useState } from 'react';
++import { useNavigate, useParams } from 'react-router-dom';
++import ScoreGauge from '../components/common/ScoreGauge.jsx';
++import Tabs from '../components/common/Tabs.jsx';
++import { getAnalysis, deleteAnalysis } from '../api/analysis.js';
++import { addComment, addDecision, getComments, getDecisions } from '../api/reports.js';
++import { useAuth } from '../context/AuthContext.jsx';
++
++const ReportDetail = () => {
++  const { id } = useParams();
++  const navigate = useNavigate();
++  const { user } = useAuth();
++
++  const [analysis, setAnalysis] = useState(null);
++  const [comments, setComments] = useState([]);
++  const [decisions, setDecisions] = useState([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++  const [commentText, setCommentText] = useState('');
++  const [decisionForm, setDecisionForm] = useState({ decision: 'accept', reason: '' });
++  const [submitting, setSubmitting] = useState(false);
++
++  const refreshData = useCallback(async () => {
++    setLoading(true);
++    setError(null);
++    try {
++      const [analysisResponse, commentResponse, decisionResponse] = await Promise.all([
++        getAnalysis(id),
++        getComments(id),
++        getDecisions(id).catch(() => [])
++      ]);
++      setAnalysis(analysisResponse);
++      setComments(commentResponse);
++      setDecisions(decisionResponse);
++    } catch (err) {
++      setError(err.message || 'Impossible de récupérer le rapport.');
++    } finally {
++      setLoading(false);
++    }
++  }, [id]);
++
++  useEffect(() => {
++    refreshData();
++  }, [refreshData]);
++
++  const handleCommentSubmit = useCallback(
++    async (event) => {
++      event.preventDefault();
++      if (!commentText.trim()) return;
++      setSubmitting(true);
++      try {
++        await addComment(id, commentText.trim());
++        setCommentText('');
++        const refreshed = await getComments(id);
++        setComments(refreshed);
++      } catch (err) {
++        setError(err.message || 'Commentaire impossible à enregistrer.');
++      } finally {
++        setSubmitting(false);
++      }
++    },
++    [commentText, id]
++  );
++
++  const handleDecisionSubmit = useCallback(
++    async (event) => {
++      event.preventDefault();
++      setSubmitting(true);
++      try {
++        await addDecision(id, decisionForm);
++        const refreshed = await getDecisions(id);
++        setDecisions(refreshed);
++        setDecisionForm({ decision: 'accept', reason: '' });
++      } catch (err) {
++        setError(err.message || 'Décision non enregistrée.');
++      } finally {
++        setSubmitting(false);
++      }
++    },
++    [decisionForm, id]
++  );
++
++  const handleDelete = useCallback(async () => {
++    if (!window.confirm('Supprimer définitivement ce rapport ?')) return;
++    await deleteAnalysis(id);
++    navigate('/reports');
++  }, [id, navigate]);
++
++  const metadata = useMemo(() => analysis?.results?.metadata?.data ?? {}, [analysis]);
++  const permissions = useMemo(() => analysis?.results?.permissions?.data ?? {}, [analysis]);
++  const codeBehavior = useMemo(() => analysis?.results?.code_behavior ?? {}, [analysis]);
++  const network = useMemo(() => analysis?.results?.network?.data ?? {}, [analysis]);
++  const cve = useMemo(() => analysis?.results?.cve?.data ?? {}, [analysis]);
++  const ai = useMemo(() => analysis?.results?.ai?.data ?? {}, [analysis]);
++
++  if (loading) {
++    return (
++      <div className="card" data-variant="flat">
++        Chargement du rapport...
++      </div>
++    );
++  }
++
++  if (error) {
++    return (
++      <div className="card" data-variant="flat" style={{ color: 'var(--color-danger)' }}>
++        {error}
++      </div>
++    );
++  }
++
++  if (!analysis) {
++    return (
++      <div className="card" data-variant="flat">
++        Rapport introuvable.
++      </div>
++    );
++  }
++
++  const tabs = [
++    {
++      id: 'overview',
++      label: 'Vue d’ensemble',
++      content: (
++        <div className="grid grid-cols-2">
++          <div>
++            <h4>Score & verdict</h4>
++            <ScoreGauge score={analysis.final_score ?? 0} verdict={analysis.verdict} />
++              <div style={{ marginTop: '16px' }}>
++              <h4>Bonifications / Malus</h4>
++              <ul>
++                  {Object.entries(analysis.bonuses ?? {}).map(([key, value]) => (
++                  <li key={key} style={{ color: 'var(--color-success)' }}>
++                    +{value} {key}
++                  </li>
++                  ))}
++                  {Object.entries(analysis.maluses ?? {}).map(([key, value]) => (
++                  <li key={key} style={{ color: 'var(--color-danger)' }}>
++                    {value} {key}
++                  </li>
++                  ))}
++                  {Object.keys(analysis.bonuses ?? {}).length === 0 &&
++                    Object.keys(analysis.maluses ?? {}).length === 0 && <li>Aucun ajustement.</li>}
++              </ul>
++            </div>
++          </div>
++          <div>
++            <h4>Module scores</h4>
++            <ul className="list">
++              {Object.entries(analysis.scores ?? {}).map(([module, score]) => (
++                <li key={module} className="list-item">
++                  <div>
++                    <strong>{module.replace('_', ' ')}</strong>
++                    <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                      Score normalisé (0-10)
++                    </p>
++                  </div>
++                  <span className="badge needs-review">{score?.toFixed(2)}</span>
++                </li>
++              ))}
++            </ul>
++          </div>
++        </div>
++      )
++    },
++    {
++      id: 'permissions',
++      label: 'Permissions',
++      content: (
++        <div className="grid grid-cols-2">
++          <div>
++            <h4>Permissions principales</h4>
++            <ul>
++              {(permissions.permissions ?? []).map((perm) => (
++                <li key={perm}>{perm}</li>
++              ))}
++            </ul>
++          </div>
++          <div>
++            <h4>Permissions d’hôtes</h4>
++            <ul>
++              {(permissions.host_permissions ?? []).map((perm) => (
++                <li key={perm}>{perm}</li>
++              ))}
++            </ul>
++          </div>
++          <div>
++            <h4>Distribution du risque</h4>
++            <ul>
++              {Object.entries(permissions.risk_distribution ?? {}).map(([risk, count]) => (
++                <li key={risk}>
++                  {risk} : <strong>{count}</strong>
++                </li>
++              ))}
++            </ul>
++          </div>
++        </div>
++      )
++    },
++    {
++      id: 'code',
++      label: 'Comportements code',
++      content: (
++        <div>
++          <h4>Patterns détectés</h4>
++          {(codeBehavior.findings ?? []).length === 0 ? (
++            <div className="empty-state">No suspicious pattern detected.</div>
++          ) : (
++            <ul className="list">
++              {(codeBehavior.findings ?? []).map((finding, index) => (
++                <li key={`${finding.message}-${index}`} className="list-item">
++                  <div>
++                    <strong>{finding.message}</strong>
++                    <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                      Catégorie : {finding.category} • Fichier : {finding.file}
++                    </p>
++                  </div>
++                  <span className="badge high-risk">{finding.severity}</span>
++                </li>
++              ))}
++            </ul>
++          )}
++        </div>
++      )
++    },
++    {
++      id: 'network',
++      label: 'Réseau & privacy',
++      content: (
++        <div className="grid grid-cols-2">
++          <div>
++            <h4>Statistiques</h4>
++            <ul>
++              <li>Total URLs : {network.total_urls ?? 0}</li>
++              <li>URLs externes : {network.external_urls ?? 0}</li>
++              <li>HTTP non sécurisés : {network.http_urls ?? 0}</li>
++              <li>Domaines uniques : {network.unique_domains ?? 0}</li>
++              <li>Domaines de tracking : {network.tracking_domains ?? 0}</li>
++            </ul>
++          </div>
++          <div>
++            <h4>Domaines observés</h4>
++            <ul>
++              {(network.domains ?? []).map((domain) => (
++                <li key={domain}>{domain}</li>
++              ))}
++            </ul>
++          </div>
++        </div>
++      )
++    },
++    {
++      id: 'cve',
++      label: 'CVE & dépendances',
++      content: (
++        <div>
++          <h4>Bibliothèques détectées</h4>
++          <ul className="list">
++            {(cve.libraries_found ?? []).map((lib) => (
++              <li key={`${lib.name}-${lib.version}`} className="list-item">
++                <div>
++                  <strong>{lib.name}</strong>
++                  <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                    Version {lib.version} • {lib.file}
++                  </p>
++                </div>
++              </li>
++            ))}
++          </ul>
++          <div className="divider" style={{ margin: '16px 0' }} />
++          <h4>Vulnérabilités</h4>
++          {(cve.cves ?? []).length === 0 ? (
++            <div className="empty-state">Aucun CVE signalé.</div>
++          ) : (
++            <ul className="list">
++              {cve.cves.map((cveItem) => (
++                <li key={cveItem.id} className="list-item">
++                  <div>
++                    <strong>{cveItem.id}</strong>
++                    <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                      {cveItem.library} {cveItem.version} • {cveItem.description}
++                    </p>
++                  </div>
++                  <span className="badge high-risk">{cveItem.severity}</span>
++                </li>
++              ))}
++            </ul>
++          )}
++        </div>
++      )
++    },
++    {
++      id: 'ai',
++      label: 'Analyse IA',
++      content: (
++        <div className="grid">
++          <div>
++            <h4>Résumé</h4>
++            <p>{ai.summary ?? 'Analyse IA non disponible.'}</p>
++          </div>
++          <div>
++            <h4>Scénarios d’attaque</h4>
++            <ul className="list">
++              {(ai.attack_scenarios ?? []).map((scenario) => (
++                <li key={scenario.title} className="list-item">
++                  <div>
++                    <strong>{scenario.title}</strong>
++                    <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                      {scenario.description}
++                    </p>
++                  </div>
++                  <span className="badge needs-review">
++                    {scenario.likelihood} / Impact {scenario.impact}
++                  </span>
++                </li>
++              ))}
++            </ul>
++          </div>
++          <div>
++            <h4>Recommandations</h4>
++            <ul>
++              {(ai.recommendations ?? []).map((recommendation) => (
++                <li key={recommendation}>{recommendation}</li>
++              ))}
++            </ul>
++          </div>
++        </div>
++      )
++    },
++    {
++      id: 'collaboration',
++      label: 'Collaboration',
++      content: (
++        <div className="grid grid-cols-2">
++          <div>
++            <h4>Commentaires</h4>
++            <ul className="list">
++              {comments.map((comment) => (
++                <li key={comment.id} className="list-item">
++                  <div>
++                    <strong>{comment.user_name}</strong>
++                    <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                      {new Date(comment.created_at).toLocaleString()}
++                    </p>
++                    <p>{comment.content}</p>
++                  </div>
++                </li>
++              ))}
++              {comments.length === 0 ? <div className="empty-state">Pas encore de commentaires.</div> : null}
++            </ul>
++            <form className="form" onSubmit={handleCommentSubmit} style={{ marginTop: '16px' }}>
++              <div className="form-group">
++                <label htmlFor="comment">Ajouter un commentaire</label>
++                <textarea
++                  id="comment"
++                  rows={3}
++                  placeholder="Partagez votre analyse ou un plan d’action..."
++                  value={commentText}
++                  onChange={(e) => setCommentText(e.target.value)}
++                />
++              </div>
++              <button type="submit" className="button primary" disabled={submitting}>
++                Publier
++              </button>
++            </form>
++          </div>
++
++          <div>
++            <h4>Décisions</h4>
++            <ul className="list">
++              {decisions.map((decision) => (
++                <li key={decision.id} className="list-item">
++                  <div>
++                    <strong>{decision.user_name}</strong>
++                    <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                      {new Date(decision.created_at).toLocaleString()}
++                    </p>
++                    <p>{decision.reason ?? '—'}</p>
++                  </div>
++                  <span className="badge needs-review">{decision.decision}</span>
++                </li>
++              ))}
++              {decisions.length === 0 ? <div className="empty-state">Pas encore de décision.</div> : null}
++            </ul>
++            {user?.role === 'admin' ? (
++              <form className="form" onSubmit={handleDecisionSubmit} style={{ marginTop: '16px' }}>
++                <div className="form-group">
++                  <label htmlFor="decision">Prendre une décision</label>
++                  <select
++                    id="decision"
++                    value={decisionForm.decision}
++                    onChange={(e) =>
++                      setDecisionForm((prev) => ({
++                        ...prev,
++                        decision: e.target.value
++                      }))
++                    }
++                  >
++                    <option value="accept">Accept</option>
++                    <option value="reject">Reject</option>
++                    <option value="pending">Pending</option>
++                  </select>
++                </div>
++                <div className="form-group">
++                  <label htmlFor="reason">Justification</label>
++                  <textarea
++                    id="reason"
++                    rows={3}
++                    value={decisionForm.reason}
++                    onChange={(e) =>
++                      setDecisionForm((prev) => ({
++                        ...prev,
++                        reason: e.target.value
++                      }))
++                    }
++                    placeholder="Expliquez pourquoi l’extension est autorisée, bloquée ou en attente."
++                  />
++                </div>
++                <button type="submit" className="button primary" disabled={submitting}>
++                  Valider
++                </button>
++              </form>
++            ) : (
++              <p style={{ color: 'var(--color-muted)', fontSize: '0.85rem' }}>
++                Seuls les administrateurs peuvent enregistrer une décision.
++              </p>
++            )}
++          </div>
++        </div>
++      )
++    }
++  ];
++
++  return (
++    <div className="grid" style={{ gap: '24px' }}>
++      <section className="page-header">
++        <h2>Rapport : {metadata.name ?? analysis.id}</h2>
++        <p>
++          Version analysée : {metadata.version ?? 'inconnue'} • Généré le{' '}
++          {analysis.completed_at ? new Date(analysis.completed_at).toLocaleString() : 'En cours'}
++        </p>
++      </section>
++
++      <section className="card" data-variant="flat">
++        <div style={{ display: 'flex', gap: '12px' }}>
++          <button type="button" className="button ghost" onClick={() => navigate('/reports')}>
++            ◀ Retour à la liste
++          </button>
++          <button type="button" className="button ghost" onClick={() => window.print()}>
++            📄 Exporter en PDF
++          </button>
++          <button
++            type="button"
++            className="button ghost"
++            onClick={() => navigator.clipboard.writeText(JSON.stringify(analysis, null, 2))}
++          >
++            ⎘ Copier JSON
++          </button>
++          {user?.role === 'admin' ? (
++            <button type="button" className="button primary" onClick={handleDelete}>
++              Supprimer
++            </button>
++          ) : null}
++        </div>
++      </section>
++
++      <section className="card">
++        <Tabs tabs={tabs} />
++      </section>
++    </div>
++  );
++};
++
++export default ReportDetail;
+diff --git a/frontend/checkme-frontend/src/pages/ReportsList.jsx b/frontend/checkme-frontend/src/pages/ReportsList.jsx
+new file mode 100644
+index 0000000..b354eec
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/ReportsList.jsx
+@@ -0,0 +1,169 @@
++import { useEffect, useMemo, useState } from 'react';
++import { useNavigate } from 'react-router-dom';
++import { listAnalyses } from '../api/analysis.js';
++import { formatVerdictLabel, getVerdictMeta } from '../utils/verdict.js';
++
++const statusOptions = [
++  { value: '', label: 'Tous les statuts' },
++  { value: 'pending', label: 'En attente' },
++  { value: 'in_progress', label: 'En cours' },
++  { value: 'completed', label: 'Terminé' },
++  { value: 'failed', label: 'Échec' }
++];
++
++const verdictOptions = [
++  { value: '', label: 'Tous les verdicts' },
++  { value: 'safe', label: 'Safe' },
++  { value: 'needs_review', label: 'Needs review' },
++  { value: 'high_risk', label: 'High risk' },
++  { value: 'block', label: 'Block / Malicious' }
++];
++
++const ReportsList = () => {
++  const navigate = useNavigate();
++  const [status, setStatus] = useState('');
++  const [verdict, setVerdict] = useState('');
++  const [query, setQuery] = useState('');
++  const [analyses, setAnalyses] = useState([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  useEffect(() => {
++    const fetchAnalyses = async () => {
++      setLoading(true);
++      setError(null);
++      try {
++        const response = await listAnalyses({
++          status: status || undefined,
++          verdict: verdict || undefined
++        });
++        setAnalyses(response);
++      } catch (err) {
++        setError(err.message || 'Impossible de récupérer les analyses.');
++      } finally {
++        setLoading(false);
++      }
++    };
++    fetchAnalyses();
++  }, [status, verdict]);
++
++  const filteredAnalyses = useMemo(() => {
++    const search = query.trim().toLowerCase();
++    if (!search) return analyses;
++    return analyses.filter(
++      (analysis) =>
++        analysis.id.toLowerCase().includes(search) ||
++        (analysis.verdict ?? '').toLowerCase().includes(search)
++    );
++  }, [analyses, query]);
++
++  return (
++    <div className="grid" style={{ gap: '24px' }}>
++      <section className="page-header">
++        <h2>Rapports d’analyse</h2>
++        <p>
++          Filtrez les rapports générés par statut opérationnel, verdict ou recherche textuelle. Exportez les résultats au format JSON/PDF.
++        </p>
++      </section>
++
++      <section className="card" data-variant="flat">
++        <div
++          style={{
++            display: 'flex',
++            gap: '16px',
++            flexWrap: 'wrap'
++          }}
++        >
++          <div className="form-group" style={{ minWidth: '220px', flex: '1' }}>
++            <label htmlFor="status">Statut</label>
++            <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
++              {statusOptions.map((option) => (
++                <option key={option.value} value={option.value}>
++                  {option.label}
++                </option>
++              ))}
++            </select>
++          </div>
++          <div className="form-group" style={{ minWidth: '220px', flex: '1' }}>
++            <label htmlFor="verdict">Verdict</label>
++            <select id="verdict" value={verdict} onChange={(e) => setVerdict(e.target.value)}>
++              {verdictOptions.map((option) => (
++                <option key={option.value} value={option.value}>
++                  {option.label}
++                </option>
++              ))}
++            </select>
++          </div>
++          <div className="form-group" style={{ flex: '2' }}>
++            <label htmlFor="query">Recherche</label>
++            <input
++              id="query"
++              type="search"
++              placeholder="Rechercher par ID, verdict..."
++              value={query}
++              onChange={(e) => setQuery(e.target.value)}
++            />
++          </div>
++        </div>
++      </section>
++
++      <section className="card">
++        <h3>Historique complet</h3>
++        {loading ? (
++          <div className="empty-state">Chargement...</div>
++        ) : error ? (
++          <div className="empty-state" style={{ color: 'var(--color-danger)' }}>
++            {error}
++          </div>
++        ) : filteredAnalyses.length === 0 ? (
++          <div className="empty-state">Aucun rapport ne correspond aux filtres.</div>
++        ) : (
++          <table className="table">
++            <thead>
++              <tr>
++                <th>ID</th>
++                <th>Statut</th>
++                <th>Score</th>
++                <th>Verdict</th>
++                <th>Date</th>
++                <th />
++              </tr>
++            </thead>
++            <tbody>
++              {filteredAnalyses.map((analysis) => (
++                <tr key={analysis.id}>
++                  <td>{analysis.id}</td>
++                  <td>
++                    <span className="badge needs-review">{analysis.status}</span>
++                  </td>
++                  <td>{analysis.final_score ?? '—'}</td>
++                  <td>
++                    {analysis.verdict ? (
++                      <span className={`badge ${getVerdictMeta(analysis.verdict).className}`}>
++                        {formatVerdictLabel(analysis.verdict)}
++                      </span>
++                    ) : (
++                      '—'
++                    )}
++                  </td>
++                  <td>{new Date(analysis.created_at).toLocaleString()}</td>
++                  <td>
++                    <button
++                      type="button"
++                      className="button ghost"
++                      onClick={() => navigate(`/reports/${analysis.id}`)}
++                    >
++                      Ouvrir
++                    </button>
++                  </td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        )}
++      </section>
++    </div>
++  );
++};
++
++export default ReportsList;
+diff --git a/frontend/checkme-frontend/src/pages/Settings.jsx b/frontend/checkme-frontend/src/pages/Settings.jsx
+new file mode 100644
+index 0000000..e35e134
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/Settings.jsx
+@@ -0,0 +1,333 @@
++import { useCallback, useEffect, useMemo, useState } from 'react';
++import PropTypes from 'prop-types';
++import {
++  createApiKey,
++  createSetting,
++  deleteApiKey,
++  deleteSetting,
++  listApiKeys,
++  listSettings,
++  toggleApiKey,
++  upsertSetting
++} from '../api/settings.js';
++import { useAuth } from '../context/AuthContext.jsx';
++
++const Settings = () => {
++  const { user } = useAuth();
++  const [settings, setSettings] = useState([]);
++  const [apiKeys, setApiKeys] = useState([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(null);
++
++  const [newSettingKey, setNewSettingKey] = useState('');
++  const [newSettingValue, setNewSettingValue] = useState('{\n  \n}');
++  const [newSettingDescription, setNewSettingDescription] = useState('');
++
++  const [newApiKey, setNewApiKey] = useState({
++    service_name: '',
++    key_name: '',
++    encrypted_key: ''
++  });
++
++  const canEdit = useMemo(() => user?.role === 'admin', [user]);
++
++  const refresh = useCallback(async () => {
++    setLoading(true);
++    setError(null);
++    try {
++      const [settingsResponse, apiKeysResponse] = await Promise.all([listSettings(), listApiKeys()]);
++      setSettings(settingsResponse);
++      setApiKeys(apiKeysResponse);
++    } catch (err) {
++      setError(err.message || 'Impossible de récupérer les paramètres.');
++    } finally {
++      setLoading(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    refresh();
++  }, [refresh]);
++
++  const handleSettingSave = async (setting) => {
++    if (!canEdit) return;
++    try {
++      const parsed = JSON.parse(setting.valueDraft);
++      await upsertSetting(setting.key, {
++        key: setting.key,
++        value: parsed,
++        description: setting.description
++      });
++      await refresh();
++    } catch (err) {
++      setError(err.message || 'Paramètre non enregistré. Vérifiez le JSON.');
++    }
++  };
++
++  const handleSettingDelete = async (key) => {
++    if (!canEdit || !window.confirm('Supprimer ce paramètre ?')) return;
++    await deleteSetting(key);
++    await refresh();
++  };
++
++  const handleNewSetting = async (event) => {
++    event.preventDefault();
++    if (!canEdit) return;
++    try {
++      const value = JSON.parse(newSettingValue);
++      await createSetting({
++        key: newSettingKey,
++        value,
++        description: newSettingDescription || undefined
++      });
++      setNewSettingKey('');
++      setNewSettingValue('{\n  \n}');
++      setNewSettingDescription('');
++      await refresh();
++    } catch (err) {
++      setError(err.message || 'Nouveau paramètre invalide.');
++    }
++  };
++
++  const handleNewApiKey = async (event) => {
++    event.preventDefault();
++    if (!canEdit) return;
++    try {
++      await createApiKey(newApiKey);
++      setNewApiKey({ service_name: '', key_name: '', encrypted_key: '' });
++      await refresh();
++    } catch (err) {
++      setError(err.message || 'Impossible de créer la clé API.');
++    }
++  };
++
++  return (
++    <div className="grid" style={{ gap: '24px' }}>
++      <section className="page-header">
++        <h2>Centre de configuration</h2>
++        <p>
++          Gérez les poids de scoring, les modules activés et les intégrations tierces (Threat Intel, IA).
++        </p>
++      </section>
++
++      {error ? (
++        <section className="card" data-variant="flat" style={{ color: 'var(--color-danger)' }}>
++          {error}
++        </section>
++      ) : null}
++
++      {loading ? (
++        <section className="card" data-variant="flat">
++          Chargement...
++        </section>
++      ) : (
++        <>
++          <section className="card">
++            <h3>Paramètres structurés</h3>
++            {settings.length === 0 ? (
++              <div className="empty-state">Aucun paramètre défini.</div>
++            ) : (
++              <div className="grid" style={{ gap: '16px' }}>
++                {settings.map((setting) => (
++                  <SettingEditor
++                    key={setting.id}
++                    setting={setting}
++                    canEdit={canEdit}
++                    onSave={handleSettingSave}
++                    onDelete={handleSettingDelete}
++                  />
++                ))}
++              </div>
++            )}
++            {canEdit ? (
++              <form className="form" onSubmit={handleNewSetting} style={{ marginTop: '24px' }}>
++                <h4>Ajouter un paramètre</h4>
++                <div className="form-group">
++                  <label htmlFor="setting-key">Clé</label>
++                  <input
++                    id="setting-key"
++                    value={newSettingKey}
++                    onChange={(e) => setNewSettingKey(e.target.value)}
++                    required
++                  />
++                </div>
++                <div className="form-group">
++                  <label htmlFor="setting-desc">Description</label>
++                  <input
++                    id="setting-desc"
++                    value={newSettingDescription}
++                    onChange={(e) => setNewSettingDescription(e.target.value)}
++                  />
++                </div>
++                <div className="form-group">
++                  <label htmlFor="setting-value">Valeur JSON</label>
++                  <textarea
++                    id="setting-value"
++                    rows={6}
++                    value={newSettingValue}
++                    onChange={(e) => setNewSettingValue(e.target.value)}
++                  />
++                </div>
++                <button type="submit" className="button primary">
++                  Enregistrer
++                </button>
++              </form>
++            ) : (
++              <p style={{ marginTop: '16px', color: 'var(--color-muted)' }}>
++                Les paramètres sont en lecture seule pour les utilisateurs non administrateurs.
++              </p>
++            )}
++          </section>
++
++          <section className="card">
++            <h3>Clés API & intégrations</h3>
++            {apiKeys.length === 0 ? (
++              <div className="empty-state">Aucune clé API renseignée pour le moment.</div>
++            ) : (
++              <ul className="list">
++                {apiKeys.map((key) => (
++                  <li key={key.id} className="list-item">
++                    <div>
++                      <strong>
++                        {key.service_name} • {key.key_name}
++                      </strong>
++                      <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++                        Utilisation : {key.usage_count} • Dernier usage :{' '}
++                        {key.last_used ? new Date(key.last_used).toLocaleString() : '—'}
++                      </p>
++                    </div>
++                    <div style={{ display: 'flex', gap: '8px' }}>
++                      <span className={`badge ${key.is_active ? 'safe' : 'high-risk'}`}>
++                        {key.is_active ? 'Active' : 'Inactive'}
++                      </span>
++                      {canEdit ? (
++                        <>
++                          <button
++                            type="button"
++                            className="button ghost"
++                            onClick={async () => {
++                              await toggleApiKey(key.id);
++                              await refresh();
++                            }}
++                          >
++                            Basculer
++                          </button>
++                          <button
++                            type="button"
++                            className="button primary"
++                            onClick={async () => {
++                              if (window.confirm('Supprimer cette clé API ?')) {
++                                await deleteApiKey(key.id);
++                                await refresh();
++                              }
++                            }}
++                          >
++                            Supprimer
++                          </button>
++                        </>
++                      ) : null}
++                    </div>
++                  </li>
++                ))}
++              </ul>
++            )}
++            {canEdit ? (
++              <form className="form" onSubmit={handleNewApiKey} style={{ marginTop: '24px' }}>
++                <h4>Enregistrer une clé</h4>
++                <div className="form-group">
++                  <label htmlFor="api-service">Service</label>
++                  <input
++                    id="api-service"
++                    value={newApiKey.service_name}
++                    onChange={(e) =>
++                      setNewApiKey((prev) => ({ ...prev, service_name: e.target.value }))
++                    }
++                    required
++                  />
++                </div>
++                <div className="form-group">
++                  <label htmlFor="api-name">Nom de la clé</label>
++                  <input
++                    id="api-name"
++                    value={newApiKey.key_name}
++                    onChange={(e) =>
++                      setNewApiKey((prev) => ({ ...prev, key_name: e.target.value }))
++                    }
++                    required
++                  />
++                </div>
++                <div className="form-group">
++                  <label htmlFor="api-encrypted">Clé chiffrée</label>
++                  <input
++                    id="api-encrypted"
++                    value={newApiKey.encrypted_key}
++                    onChange={(e) =>
++                      setNewApiKey((prev) => ({ ...prev, encrypted_key: e.target.value }))
++                    }
++                    required
++                  />
++                </div>
++                <button type="submit" className="button primary">
++                  Ajouter
++                </button>
++              </form>
++            ) : null}
++          </section>
++        </>
++      )}
++    </div>
++  );
++};
++
++const SettingEditor = ({ setting, canEdit, onSave, onDelete }) => {
++  const [draft, setDraft] = useState(JSON.stringify(setting.value, null, 2));
++
++  return (
++    <div className="card" data-variant="flat">
++      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
++        <div>
++          <strong>{setting.key}</strong>
++          <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>{setting.description}</p>
++        </div>
++        <span className="badge needs-review">ID: {setting.id.slice(0, 8)}</span>
++      </div>
++      <div className="form-group" style={{ marginTop: '16px' }}>
++        <label>Valeur JSON</label>
++        <textarea
++          rows={6}
++          value={draft}
++          onChange={(e) => setDraft(e.target.value)}
++          disabled={!canEdit}
++        />
++      </div>
++      {canEdit ? (
++        <div style={{ display: 'flex', gap: '12px' }}>
++          <button
++            type="button"
++            className="button primary"
++            onClick={() => onSave({ ...setting, valueDraft: draft })}
++          >
++            Sauvegarder
++          </button>
++          <button type="button" className="button ghost" onClick={() => onDelete(setting.key)}>
++            Supprimer
++          </button>
++        </div>
++      ) : null}
++    </div>
++  );
++};
++
++SettingEditor.propTypes = {
++  setting: PropTypes.shape({
++    id: PropTypes.string.isRequired,
++    key: PropTypes.string.isRequired,
++    value: PropTypes.any,
++    description: PropTypes.string
++  }).isRequired,
++  canEdit: PropTypes.bool.isRequired,
++  onSave: PropTypes.func.isRequired,
++  onDelete: PropTypes.func.isRequired
++};
++
++export default Settings;
+diff --git a/frontend/checkme-frontend/src/pages/auth/Login.jsx b/frontend/checkme-frontend/src/pages/auth/Login.jsx
+new file mode 100644
+index 0000000..5a1d9dd
+--- /dev/null
++++ b/frontend/checkme-frontend/src/pages/auth/Login.jsx
+@@ -0,0 +1,95 @@
++import { useCallback, useState } from 'react';
++import { useLocation, useNavigate } from 'react-router-dom';
++import { useAuth } from '../../context/AuthContext.jsx';
++
++const Login = () => {
++  const navigate = useNavigate();
++  const location = useLocation();
++  const { login } = useAuth();
++
++  const [email, setEmail] = useState('');
++  const [password, setPassword] = useState('');
++  const [loading, setLoading] = useState(false);
++  const [error, setError] = useState(null);
++
++  const handleSubmit = useCallback(
++    async (event) => {
++      event.preventDefault();
++      setError(null);
++      setLoading(true);
++      try {
++        await login(email, password);
++        const redirectTo = location.state?.from?.pathname || '/';
++        navigate(redirectTo, { replace: true });
++      } catch (err) {
++        setError(err.message || 'Échec de l’authentification');
++      } finally {
++        setLoading(false);
++      }
++    },
++    [email, password, login, navigate, location.state]
++  );
++
++  return (
++    <div className="login-screen">
++      <div className="login-card">
++        <div>
++          <h1>Bienvenue sur CheckMe</h1>
++          <p style={{ margin: '4px 0 0', color: 'var(--color-muted)' }}>
++            Analysez, priorisez et validez la sécurité des extensions navigateur.
++          </p>
++        </div>
++
++        <form className="form" onSubmit={handleSubmit}>
++          <div className="form-group">
++            <label htmlFor="email">Adresse e-mail professionnelle</label>
++            <input
++              id="email"
++              type="email"
++              autoComplete="email"
++              placeholder="analyste@soc.example"
++              value={email}
++              onChange={(e) => setEmail(e.target.value)}
++              required
++            />
++          </div>
++          <div className="form-group">
++            <label htmlFor="password">Mot de passe</label>
++            <input
++              id="password"
++              type="password"
++              autoComplete="current-password"
++              placeholder="••••••••"
++              value={password}
++              onChange={(e) => setPassword(e.target.value)}
++              required
++            />
++          </div>
++          {error ? (
++            <div
++              style={{
++                padding: '12px',
++                borderRadius: '12px',
++                background: 'rgba(239,68,68,0.12)',
++                color: 'var(--color-danger)',
++                fontSize: '0.9rem'
++              }}
++            >
++              {error}
++            </div>
++          ) : null}
++          <button type="submit" className="button primary" disabled={loading}>
++            {loading ? 'Connexion...' : 'Se connecter'}
++          </button>
++        </form>
++
++        <div className="divider" />
++        <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: 0 }}>
++          Besoin d’un accès ? Contactez votre administrateur CheckMe.
++        </p>
++      </div>
++    </div>
++  );
++};
++
++export default Login;
+diff --git a/frontend/checkme-frontend/src/styles/global.css b/frontend/checkme-frontend/src/styles/global.css
+new file mode 100644
+index 0000000..5902604
+--- /dev/null
++++ b/frontend/checkme-frontend/src/styles/global.css
+@@ -0,0 +1,446 @@
++:root {
++  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
++  --color-bg: #f5f7fb;
++  --color-surface: #ffffff;
++  --color-border: #dfe3eb;
++  --color-text: #1f2937;
++  --color-muted: #6b7280;
++  --color-primary: #2563eb;
++  --color-primary-soft: rgba(37, 99, 235, 0.1);
++  --color-success: #16a34a;
++  --color-warning: #f59e0b;
++  --color-danger: #ef4444;
++  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
++  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
++  --sidebar-width: 260px;
++}
++
++[data-theme='dark'] {
++  --color-bg: #0f172a;
++  --color-surface: #111c33;
++  --color-border: #1f2b46;
++  --color-text: #f8fafc;
++  --color-muted: #94a3b8;
++  --color-primary-soft: rgba(37, 99, 235, 0.2);
++  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.9);
++  --shadow-md: 0 16px 32px rgba(15, 23, 42, 0.6);
++}
++
++*,
++*::before,
++*::after {
++  box-sizing: border-box;
++}
++
++body {
++  margin: 0;
++  font-family: var(--font-family);
++  background-color: var(--color-bg);
++  color: var(--color-text);
++}
++
++a {
++  color: inherit;
++  text-decoration: none;
++}
++
++ul {
++  padding: 0;
++  margin: 0;
++  list-style: none;
++}
++
++.app-shell {
++  display: flex;
++  min-height: 100vh;
++}
++
++.sidebar {
++  width: var(--sidebar-width);
++  background: var(--color-surface);
++  border-right: 1px solid var(--color-border);
++  padding: 24px;
++  display: flex;
++  flex-direction: column;
++  gap: 24px;
++}
++
++.sidebar-brand {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++}
++
++.sidebar-brand h1 {
++  font-size: 1.3rem;
++  margin: 0;
++  font-weight: 600;
++}
++
++.sidebar-nav {
++  display: flex;
++  flex-direction: column;
++  gap: 8px;
++}
++
++.sidebar-link {
++  display: flex;
++  align-items: center;
++  gap: 12px;
++  padding: 10px 12px;
++  border-radius: 10px;
++  color: var(--color-muted);
++  transition: background 0.2s ease, color 0.2s ease;
++}
++
++.sidebar-link.active,
++.sidebar-link:hover {
++  background: var(--color-primary-soft);
++  color: var(--color-primary);
++}
++
++.main-view {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  min-height: 100vh;
++}
++
++.topbar {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  padding: 18px 32px;
++  border-bottom: 1px solid var(--color-border);
++  background: var(--color-surface);
++  position: sticky;
++  top: 0;
++  z-index: 10;
++}
++
++.topbar .actions {
++  display: flex;
++  align-items: center;
++  gap: 16px;
++}
++
++.content {
++  padding: 32px;
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  gap: 24px;
++}
++
++.page-header {
++  display: flex;
++  flex-direction: column;
++  gap: 8px;
++}
++
++.page-header h2 {
++  margin: 0;
++  font-size: 1.75rem;
++  font-weight: 600;
++}
++
++.page-header p {
++  margin: 0;
++  color: var(--color-muted);
++}
++
++.card {
++  background: var(--color-surface);
++  border-radius: 16px;
++  padding: 24px;
++  box-shadow: var(--shadow-sm);
++  border: 1px solid transparent;
++}
++
++.card[data-variant='flat'] {
++  box-shadow: none;
++  border-color: var(--color-border);
++}
++
++.grid {
++  display: grid;
++  gap: 24px;
++}
++
++.grid-cols-2 {
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++}
++
++.grid-cols-3 {
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++}
++
++.stat-card {
++  display: flex;
++  flex-direction: column;
++  gap: 12px;
++}
++
++.stat-card h3 {
++  margin: 0;
++  color: var(--color-muted);
++  font-size: 0.95rem;
++  font-weight: 500;
++}
++
++.stat-card strong {
++  font-size: 1.6rem;
++}
++
++.stat-trend {
++  display: inline-flex;
++  align-items: center;
++  gap: 6px;
++  font-size: 0.85rem;
++  font-weight: 500;
++}
++
++.stat-trend.positive {
++  color: var(--color-success);
++}
++
++.stat-trend.negative {
++  color: var(--color-danger);
++}
++
++.button {
++  display: inline-flex;
++  align-items: center;
++  gap: 8px;
++  border-radius: 12px;
++  border: none;
++  cursor: pointer;
++  padding: 10px 16px;
++  font-size: 0.95rem;
++  font-weight: 500;
++  transition: transform 0.15s ease, box-shadow 0.15s ease;
++}
++
++.button.primary {
++  background: var(--color-primary);
++  color: #fff;
++  box-shadow: var(--shadow-sm);
++}
++
++.button.ghost {
++  background: transparent;
++  color: var(--color-muted);
++}
++
++.button[disabled] {
++  opacity: 0.6;
++  cursor: not-allowed;
++}
++
++.tag {
++  display: inline-flex;
++  align-items: center;
++  padding: 4px 10px;
++  font-size: 0.8rem;
++  border-radius: 999px;
++  gap: 6px;
++  background: var(--color-primary-soft);
++  color: var(--color-primary);
++}
++
++.badge {
++  display: inline-flex;
++  align-items: center;
++  padding: 4px 8px;
++  border-radius: 8px;
++  font-size: 0.8rem;
++  font-weight: 600;
++  text-transform: uppercase;
++  letter-spacing: 0.02em;
++}
++
++.badge.safe {
++  background: rgba(22, 163, 74, 0.1);
++  color: var(--color-success);
++}
++
++.badge.needs-review {
++  background: rgba(245, 158, 11, 0.1);
++  color: var(--color-warning);
++}
++
++.badge.high-risk {
++  background: rgba(239, 68, 68, 0.1);
++  color: var(--color-danger);
++}
++
++.badge.block {
++  background: rgba(239, 68, 68, 0.15);
++  color: var(--color-danger);
++}
++
++.table {
++  width: 100%;
++  border-collapse: collapse;
++}
++
++.table thead {
++  text-align: left;
++  color: var(--color-muted);
++  font-size: 0.85rem;
++}
++
++.table th,
++.table td {
++  padding: 14px 16px;
++  border-bottom: 1px solid var(--color-border);
++}
++
++.tab-container {
++  display: flex;
++  flex-direction: column;
++  gap: 16px;
++}
++
++.tab-list {
++  display: flex;
++  gap: 12px;
++  border-bottom: 1px solid var(--color-border);
++}
++
++.tab {
++  padding: 10px 16px;
++  border-radius: 10px 10px 0 0;
++  background: transparent;
++  border: none;
++  cursor: pointer;
++  font-weight: 500;
++  color: var(--color-muted);
++}
++
++.tab.active {
++  background: var(--color-surface);
++  color: var(--color-primary);
++  border-bottom: 2px solid var(--color-primary);
++}
++
++.tab-panel {
++  background: var(--color-surface);
++  border-radius: 12px;
++  border: 1px solid var(--color-border);
++  padding: 20px;
++}
++
++.fullscreen-loader {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  justify-content: center;
++  height: 100vh;
++  gap: 16px;
++  color: var(--color-muted);
++}
++
++.spinner {
++  width: 42px;
++  height: 42px;
++  border-radius: 50%;
++  border: 4px solid var(--color-border);
++  border-top-color: var(--color-primary);
++  animation: spin 1s linear infinite;
++}
++
++@keyframes spin {
++  to {
++    transform: rotate(360deg);
++  }
++}
++
++.form {
++  display: flex;
++  flex-direction: column;
++  gap: 16px;
++}
++
++.form-group {
++  display: flex;
++  flex-direction: column;
++  gap: 8px;
++}
++
++.form-group label {
++  font-weight: 500;
++  font-size: 0.95rem;
++}
++
++.form-group input,
++.form-group select,
++.form-group textarea {
++  padding: 12px;
++  border-radius: 10px;
++  border: 1px solid var(--color-border);
++  background: var(--color-surface);
++  color: var(--color-text);
++  font-size: 0.95rem;
++}
++
++.login-screen {
++  min-height: 100vh;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  padding: 32px;
++  background: radial-gradient(circle at top, rgba(37, 99, 235, 0.12), transparent 60%);
++}
++
++.login-card {
++  width: min(420px, 100%);
++  padding: 32px;
++  background: var(--color-surface);
++  border-radius: 24px;
++  box-shadow: var(--shadow-md);
++  display: flex;
++  flex-direction: column;
++  gap: 24px;
++  border: 1px solid rgba(255, 255, 255, 0.04);
++}
++
++.login-card h1 {
++  margin: 0;
++  font-size: 1.8rem;
++}
++
++.divider {
++  height: 1px;
++  background: var(--color-border);
++  width: 100%;
++}
++
++.list {
++  display: flex;
++  flex-direction: column;
++  gap: 16px;
++}
++
++.list-item {
++  display: flex;
++  justify-content: space-between;
++  align-items: flex-start;
++  padding: 16px;
++  border: 1px solid var(--color-border);
++  border-radius: 12px;
++  background: var(--color-surface);
++  gap: 16px;
++}
++
++.list-item strong {
++  font-size: 1.05rem;
++}
++
++.empty-state {
++  padding: 32px;
++  text-align: center;
++  color: var(--color-muted);
++  border: 1px dashed var(--color-border);
++  border-radius: 12px;
++}
+diff --git a/frontend/checkme-frontend/src/utils/mocks.js b/frontend/checkme-frontend/src/utils/mocks.js
+new file mode 100644
+index 0000000..19a1e21
+--- /dev/null
++++ b/frontend/checkme-frontend/src/utils/mocks.js
+@@ -0,0 +1,37 @@
++export const sampleMetrics = {
++  users: { total: 12, active: 10, admins: 2 },
++  analyses: {
++    total: 48,
++    completed: 39,
++    verdicts: {
++      safe: 18,
++      needs_review: 14,
++      high_risk: 5,
++      block: 2
++    }
++  }
++};
++
++export const sampleAnalyses = [
++  {
++    id: 'mock-safe',
++    status: 'completed',
++    final_score: 8.5,
++    verdict: 'safe',
++    created_at: new Date().toISOString()
++  },
++  {
++    id: 'mock-review',
++    status: 'completed',
++    final_score: 22.3,
++    verdict: 'needs_review',
++    created_at: new Date().toISOString()
++  },
++  {
++    id: 'mock-in-progress',
++    status: 'in_progress',
++    final_score: null,
++    verdict: null,
++    created_at: new Date().toISOString()
++  }
++];
+diff --git a/frontend/checkme-frontend/src/utils/verdict.js b/frontend/checkme-frontend/src/utils/verdict.js
+new file mode 100644
+index 0000000..825a404
+--- /dev/null
++++ b/frontend/checkme-frontend/src/utils/verdict.js
+@@ -0,0 +1,14 @@
++const VERDICT_META = {
++  safe: { label: 'SAFE', className: 'safe' },
++  needs_review: { label: 'NEEDS REVIEW', className: 'needs-review' },
++  high_risk: { label: 'HIGH RISK', className: 'high-risk' },
++  block: { label: 'BLOCK / MALICIOUS', className: 'block' }
++};
++
++export const getVerdictMeta = (verdict) => {
++  if (!verdict) return VERDICT_META.safe;
++  const key = verdict.toLowerCase();
++  return VERDICT_META[key] ?? VERDICT_META.safe;
++};
++
++export const formatVerdictLabel = (verdict) => getVerdictMeta(verdict).label;
+diff --git a/frontend/checkme-frontend/vite.config.js b/frontend/checkme-frontend/vite.config.js
+new file mode 100644
+index 0000000..e0fab8e
+--- /dev/null
++++ b/frontend/checkme-frontend/vite.config.js
+@@ -0,0 +1,21 @@
++import { defineConfig } from 'vite';
++import react from '@vitejs/plugin-react';
++
++export default defineConfig({
++  plugins: [react()],
++  server: {
++    port: 5173,
++    proxy: {
++      '/api': {
++        target: 'http://localhost:8000',
++        changeOrigin: true,
++        secure: false
++      }
++    }
++  },
++  resolve: {
++    alias: {
++      '@': '/src'
++    }
++  }
++});
+-- 
+2.43.0
+

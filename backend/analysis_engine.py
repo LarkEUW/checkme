@@ -450,7 +450,7 @@ class NetworkAnalyzer:
             all_urls.extend(urls)
         
         # Analyze URLs
-        external_urls = [url for url in all_urls if not any(local in url for local in ['localhost', '127.0.0.1', 'chrome-extension'])']
+        external_urls = [url for url in all_urls if not any(local in url for local in ['localhost', '127.0.0.1', 'chrome-extension'])]
         unique_domains = list(set([url.split('/')[2] for url in external_urls]))
         
         # Check for non-HTTPS URLs

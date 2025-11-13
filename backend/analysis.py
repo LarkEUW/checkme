@@ -52,28 +52,95 @@ class AnalysisDetailResponse(BaseModel):
 analysis_engine = AnalysisEngine()
 
 # Helper functions
-async def extract_manifest_from_file(file_path: str) -> dict:
-    """Extract manifest.json from extension file"""
+def _extract_extension_identifier(url: Optional[str]) -> Optional[str]:
+    if not url:
+        return None
+    url = url.rstrip("/")
+    if not url:
+        return None
     try:
-        if file_path.endswith('.zip') or file_path.endswith('.crx'):
-            with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                # Extract to temp directory
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    zip_ref.extractall(temp_dir)
-                    
-                    # Look for manifest.json
-                    manifest_path = os.path.join(temp_dir, 'manifest.json')
-                    if os.path.exists(manifest_path):
-                        with open(manifest_path, 'r', encoding='utf-8') as f:
-                            return json.load(f)
-                    else:
-                        # Look in subdirectories
-                        for root, dirs, files in os.walk(temp_dir):
-                            if 'manifest.json' in files:
-                                with open(os.path.join(root, 'manifest.json'), 'r', encoding='utf-8') as f:
-                                    return json.load(f)
-        
-        raise HTTPException(status_code=400, detail="Manifest not found in extension file")
+        return url.split("/")[-1]
+    except Exception:
+        return None
+
+
+def _prepare_workspace(analysis_id: uuid.UUID) -> Path:
+    workspace_root = Path("analysis_workspace")
+    workspace_root.mkdir(exist_ok=True)
+    workspace_dir = workspace_root / str(analysis_id)
+    if workspace_dir.exists():
+        shutil.rmtree(workspace_dir)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    return workspace_dir
+
+
+def _extract_crx_file(crx_path: Path, destination: Path) -> None:
+    with open(crx_path, "rb") as handle:
+        data = handle.read()
+    zip_header = b"PK\x03\x04"
+    zip_start = data.find(zip_header)
+    if zip_start == -1:
+        raise ValueError("Invalid CRX file: ZIP header not found")
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_zip:
+        temp_zip.write(data[zip_start:])
+        temp_zip_path = Path(temp_zip.name)
+    try:
+        with zipfile.ZipFile(temp_zip_path, "r") as zip_ref:
+            zip_ref.extractall(destination)
+    finally:
+        temp_zip_path.unlink(missing_ok=True)
+
+
+def _copy_or_extract_extension(source: str, destination: Path) -> None:
+    source_path = Path(source)
+    if source_path.is_dir():
+        shutil.copytree(source_path, destination, dirs_exist_ok=True)
+        return
+    if zipfile.is_zipfile(source_path):
+        with zipfile.ZipFile(source_path, "r") as zip_ref:
+            zip_ref.extractall(destination)
+        return
+    if source_path.suffix.lower() == ".crx":
+        _extract_crx_file(source_path, destination)
+        return
+    raise ValueError("Unsupported extension package format")
+
+
+def _load_manifest_from_directory(directory: Path) -> dict:
+    manifest_path = directory / "manifest.json"
+    if manifest_path.exists():
+        with open(manifest_path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    for path in directory.rglob("manifest.json"):
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    raise HTTPException(status_code=400, detail="Manifest not found in extension file")
+
+
+def _calculate_directory_size(path: Path) -> int:
+    total = 0
+    for item in path.rglob("*"):
+        if item.is_file():
+            total += item.stat().st_size
+    return total
+
+
+async def extract_manifest_from_file(file_path: str, destination: Optional[Path] = None) -> dict:
+    """Extract manifest.json from extension file into an optional destination directory"""
+    try:
+        if destination is None:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                _copy_or_extract_extension(file_path, temp_path)
+                return _load_manifest_from_directory(temp_path)
+        else:
+            if destination.exists():
+                shutil.rmtree(destination)
+            destination.mkdir(parents=True, exist_ok=True)
+            _copy_or_extract_extension(file_path, destination)
+            return _load_manifest_from_directory(destination)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to extract manifest: {str(e)}")
 
@@ -123,6 +190,8 @@ async def create_analysis(
         raise HTTPException(status_code=400, detail="Store type required")
     
     analysis_id = uuid.uuid4()
+    store_identifier = _extract_extension_identifier(url)
+    resolved_store_type = store_type or "upload"
     
     # Handle file upload
     file_path = None
@@ -134,17 +203,42 @@ async def create_analysis(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
     
+    if resolved_store_type == "upload" and store_identifier is None:
+        store_identifier = f"upload-{analysis_id}"
+    
+    extension = Extension(
+        id=uuid.uuid4(),
+        store_id=store_identifier or f"{resolved_store_type}-{analysis_id}",
+        store_type=resolved_store_type,
+        name=file.filename if file else "Pending Analysis",
+        verified_publisher=False
+    )
+    db.add(extension)
+    await db.flush()
+    
+    version = ExtensionVersion(
+        id=uuid.uuid4(),
+        extension_id=extension.id,
+        version="0.0.0",
+        manifest_json={},
+        file_path=str(file_path) if file_path else None,
+        file_size=os.path.getsize(file_path) if file_path and os.path.isfile(file_path) else None
+    )
+    db.add(version)
+    await db.flush()
+    
     # Create analysis record
     analysis = Analysis(
         id=analysis_id,
-        extension_id=uuid.uuid4(),  # Will be updated later
-        version_id=uuid.uuid4(),    # Will be updated later
+        extension_id=extension.id,
+        version_id=version.id,
         user_id=current_user.id,
         status=AnalysisStatus.PENDING
     )
     
     db.add(analysis)
     await db.commit()
+    await db.refresh(analysis)
     
     # Start analysis in background
     background_tasks.add_task(
@@ -152,7 +246,7 @@ async def create_analysis(
         analysis_id,
         mode,
         url,
-        file_path,
+        str(file_path) if file_path else None,
         store_type,
         current_user.id
     )
@@ -175,61 +269,84 @@ async def run_analysis(
 ):
     """Run the actual analysis"""
     async with AsyncSessionLocal() as db:
+        analysis = None
+        workspace_dir: Optional[Path] = None
+        cleanup_paths: List[Path] = []
         try:
-            # Get analysis record
             analysis = await db.get(Analysis, analysis_id)
             if not analysis:
                 return
-            
-            # Update status to in progress
+            extension = await db.get(Extension, analysis.extension_id) if analysis.extension_id else None
+            version = await db.get(ExtensionVersion, analysis.version_id) if analysis.version_id else None
+
             analysis.status = AnalysisStatus.IN_PROGRESS
             await db.commit()
-            
-            manifest = None
-            store_data = None
-            temp_dir = None
-            
-            if mode in ['url', 'combined']:
-                # Extract extension ID from URL
-                # Example: https://chrome.google.com/webstore/detail/adblock-plus-free-ad-bloc/cfhdojbkjhnklbpkdaibdccddilifddb
-                extension_id = url.split('/')[-1] if url else None
-                
-                # Get store data
-                if extension_id and store_type:
-                    store_data = await get_store_data(store_type, extension_id)
-                
-                # Download and extract extension using real downloader
+            await db.refresh(analysis)
+
+            manifest: Optional[dict] = None
+            store_data: Optional[dict] = None
+            workspace_dir = _prepare_workspace(analysis_id)
+            file_path_for_engine = str(workspace_dir)
+            extension_identifier = _extract_extension_identifier(url)
+
+            if mode in ['url', 'combined'] and url and store_type:
+                if extension_identifier:
+                    store_data = await get_store_data(store_type, extension_identifier)
+
                 from extension_downloader import ExtensionDownloader
-                
+
                 async with ExtensionDownloader() as downloader:
                     download_result = await downloader.download_from_store(url, store_type)
-                    manifest_path = os.path.join(download_result['file_path'], 'manifest.json')
-                    
-                    # Load the real manifest
-                    with open(manifest_path, 'r') as f:
-                        manifest = json.load(f)
-                    
-                    file_path = download_result['file_path']
-                    store_data = download_result.get('store_data')
-            
+                downloaded_path = Path(download_result['file_path'])
+                manifest = await extract_manifest_from_file(str(downloaded_path), workspace_dir)
+                store_data = download_result.get('store_data') or store_data
+                extension_identifier = download_result.get('extension_id') or extension_identifier
+                cleanup_root = downloaded_path.parent if downloaded_path.parent.exists() else downloaded_path
+                cleanup_paths.append(cleanup_root)
+
             elif mode == 'file' and file_path:
-                # Extract manifest from uploaded file
-                manifest = await extract_manifest_from_file(file_path)
-            
+                manifest = await extract_manifest_from_file(file_path, workspace_dir)
+
             if not manifest:
                 analysis.status = AnalysisStatus.FAILED
                 await db.commit()
                 return
-            
-            # Run analysis
-            results = await analysis_engine.analyze_extension(manifest, file_path, store_data)
-            
-            # Update analysis record with results
+
+            if extension:
+                if extension_identifier:
+                    extension.store_id = extension_identifier
+                if store_type:
+                    extension.store_type = store_type
+                extension.name = manifest.get('name') or extension.name or "Unknown Extension"
+                extension.developer_name = manifest.get('author') or extension.developer_name
+                if store_data:
+                    extension.developer_email = store_data.get('developer_email') or extension.developer_email
+                    extension.developer_website = store_data.get('developer_website') or extension.developer_website
+                    if store_data.get('verified_publisher') is not None:
+                        extension.verified_publisher = bool(store_data.get('verified_publisher'))
+                    extension.duns_number = store_data.get('duns_number') or extension.duns_number
+                    extension.privacy_policy_url = store_data.get('privacy_policy_url') or extension.privacy_policy_url
+                    extension.support_url = store_data.get('support_url') or extension.support_url
+
+            if version:
+                version.version = manifest.get('version', version.version or "0.0.0")
+                version.manifest_json = manifest
+                version.file_path = file_path_for_engine
+                version.file_size = _calculate_directory_size(workspace_dir)
+                if store_data and store_data.get('last_updated'):
+                    try:
+                        version.last_updated = datetime.fromisoformat(store_data['last_updated'].replace('Z', '+00:00'))
+                    except ValueError:
+                        pass
+
+            await db.commit()
+
+            results = await analysis_engine.analyze_extension(manifest, file_path_for_engine, store_data)
+
             analysis.status = AnalysisStatus.COMPLETED
             analysis.final_score = results['final_score']
             analysis.verdict = Verdict(results['verdict'])
-            
-            # Store individual scores
+
             analysis.metadata_score = results['scores'].get('metadata', 0)
             analysis.permissions_score = results['scores'].get('permissions', 0)
             analysis.code_behavior_score = results['scores'].get('code_behavior', 0)
@@ -237,8 +354,7 @@ async def run_analysis(
             analysis.threat_intel_score = results['scores'].get('threat_intel', 0)
             analysis.cve_score = results['scores'].get('cve', 0)
             analysis.ai_score = results['scores'].get('ai', 0)
-            
-            # Store detailed results
+
             analysis.metadata_data = results['results'].get('metadata', {}).get('data', {})
             analysis.permissions_data = results['results'].get('permissions', {}).get('data', {})
             analysis.code_behavior_data = results['results'].get('code_behavior', {}).get('data', {})
@@ -246,25 +362,27 @@ async def run_analysis(
             analysis.threat_intel_data = results['results'].get('threat_intel', {}).get('data', {})
             analysis.cve_data = results['results'].get('cve', {}).get('data', {})
             analysis.ai_analysis = results['results'].get('ai', {}).get('data', {})
-            
+
             analysis.bonuses = results['bonuses']
             analysis.maluses = results['maluses']
-            
+
             analysis.completed_at = datetime.utcnow()
-            
+
             await db.commit()
-            
-        except Exception as e:
-            # Update status to failed
-            analysis = await db.get(Analysis, analysis_id)
+
+        except Exception:
             if analysis:
                 analysis.status = AnalysisStatus.FAILED
                 await db.commit()
-        
         finally:
-            # Cleanup temp files
-            if temp_dir and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
+            for path in cleanup_paths:
+                try:
+                    if path.is_dir():
+                        shutil.rmtree(path, ignore_errors=True)
+                    elif path.exists():
+                        path.unlink(missing_ok=True)
+                except Exception:
+                    pass
 
 @router.get("/analysis/{analysis_id}", response_model=AnalysisDetailResponse)
 async def get_analysis(

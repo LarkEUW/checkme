@@ -23,7 +23,7 @@ class Verdict(enum.Enum):
     BLOCK = "block"
     MALICIOUS = "malicious"
 
-class Decision(enum.Enum):
+class DecisionChoice(enum.Enum):
     ACCEPT = "accept"
     REJECT = "reject"
     PENDING = "pending"
@@ -147,7 +147,7 @@ class Decision(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     analysis_id = Column(UUID(as_uuid=True), ForeignKey("analyses.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    decision = Column(Enum(Decision), nullable=False)
+    decision = Column(Enum(DecisionChoice), nullable=False)
     reason = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

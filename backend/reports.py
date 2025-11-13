@@ -6,7 +6,7 @@ from typing import List, Optional
 import uuid
 
 from database import get_db
-from models import Analysis, Comment, Decision, User, UserRole
+from models import Analysis, AnalysisStatus, Comment, Decision, DecisionChoice, User, UserRole
 from auth import get_current_active_user, get_admin_user
 
 router = APIRouter()
@@ -22,7 +22,7 @@ class CommentResponse(BaseModel):
     created_at: str
 
 class DecisionCreate(BaseModel):
-    decision: str  # accept, reject, pending
+    decision: DecisionChoice  # accept, reject, pending
     reason: Optional[str] = None
 
 class DecisionResponse(BaseModel):
@@ -132,7 +132,7 @@ async def make_decision(
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     
-    if analysis.status.value != 'completed':
+    if analysis.status != AnalysisStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Analysis not yet completed")
     
     # Create decision
@@ -140,7 +140,7 @@ async def make_decision(
         id=uuid.uuid4(),
         analysis_id=analysis_uuid,
         user_id=current_user.id,
-        decision=Decision(decision_data.decision),
+        decision=decision_data.decision,
         reason=decision_data.reason
     )
     

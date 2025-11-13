@@ -6,7 +6,7 @@ from typing import List, Optional
 import uuid
 
 from database import get_db
-from models import User, UserRole, SystemSetting, ApiKey, Analysis
+from models import User, UserRole, SystemSetting, ApiKey, Analysis, AnalysisStatus, Verdict
 from auth import get_admin_user
 
 router = APIRouter()
@@ -292,14 +292,21 @@ async def get_metrics(
     total_analyses = await db.execute(select(Analysis))
     total_analyses_count = len(total_analyses.scalars().all())
     
-    completed_analyses = await db.execute(select(Analysis).where(Analysis.status == 'completed'))
+    completed_analyses = await db.execute(select(Analysis).where(Analysis.status == AnalysisStatus.COMPLETED))
     completed_analyses_count = len(completed_analyses.scalars().all())
     
     # Verdict distribution
     verdict_counts = {}
-    for verdict in ['safe', 'needs_review', 'high_risk', 'block']:
-        count = await db.execute(select(Analysis).where(Analysis.verdict == verdict))
-        verdict_counts[verdict] = len(count.scalars().all())
+    verdict_map = {
+        Verdict.SAFE.value: Verdict.SAFE,
+        Verdict.NEEDS_REVIEW.value: Verdict.NEEDS_REVIEW,
+        Verdict.HIGH_RISK.value: Verdict.HIGH_RISK,
+        Verdict.BLOCK.value: Verdict.BLOCK,
+        Verdict.MALICIOUS.value: Verdict.MALICIOUS
+    }
+    for verdict_value, verdict_enum in verdict_map.items():
+        count = await db.execute(select(Analysis).where(Analysis.verdict == verdict_enum))
+        verdict_counts[verdict_value] = len(count.scalars().all())
     
     return {
         "users": {
